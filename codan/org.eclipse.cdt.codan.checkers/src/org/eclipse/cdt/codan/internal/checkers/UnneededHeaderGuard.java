@@ -4,13 +4,12 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 
 import org.eclipse.cdt.codan.core.cxx.model.AbstractIndexAstChecker;
-import org.eclipse.cdt.core.dom.ast.ASTVisitor;
-import org.eclipse.cdt.core.dom.ast.IASTDeclaration;
-import org.eclipse.cdt.core.dom.ast.IASTName;
+import org.eclipse.cdt.codan.internal.checkers.preprocessor.ASTPreprocessorVisitor;
+import org.eclipse.cdt.codan.internal.checkers.preprocessor.NodePreprocessorMap;
+import org.eclipse.cdt.codan.internal.checkers.preprocessor.PreprocessorHandler;
 import org.eclipse.cdt.core.dom.ast.IASTNode;
 import org.eclipse.cdt.core.dom.ast.IASTPreprocessorElifStatement;
 import org.eclipse.cdt.core.dom.ast.IASTPreprocessorElseStatement;
@@ -25,8 +24,6 @@ import org.eclipse.cdt.core.dom.ast.IASTTranslationUnit;
 import org.eclipse.cdt.core.model.CModelException;
 import org.eclipse.cdt.core.model.CoreModelUtil;
 import org.eclipse.cdt.core.model.ITranslationUnit;
-import org.eclipse.cdt.internal.core.dom.parser.ASTNode;
-import org.eclipse.cdt.internal.core.dom.rewrite.util.OffsetHelper;
 import org.eclipse.core.runtime.CoreException;
 
 /**
@@ -36,130 +33,6 @@ import org.eclipse.core.runtime.CoreException;
  */
 public class UnneededHeaderGuard extends AbstractIndexAstChecker {
 	public static final String ER_ID = "org.eclipse.cdt.codan.internal.checkers.UnneededHeaderGuard"; //$NON-NLS-1$
-	
-	/**
-	 * This class keeps a link between preprocessor statements and nodes in the AST.
-	 */
-	private class NodePreprocessorMap {
-		private HashMap<IASTNode, ArrayList<IASTPreprocessorStatement>> preprocessorStatements =
-				new HashMap<IASTNode, ArrayList<IASTPreprocessorStatement>>();		
-		/**
-		 * Add a preprocessor statement to the map.
-		 * Statements are kept with the node in the order they are added.
-		 */
-		public void addStatement(IASTNode node, IASTPreprocessorStatement statement) {
-			ArrayList<IASTPreprocessorStatement> statements = preprocessorStatements.get(node);
-			if(statements == null) {
-				statements = new ArrayList<IASTPreprocessorStatement>();
-			}
-			statements.add(statement);
-			preprocessorStatements.put(node, statements);
-		}
-		
-		public HashMap<IASTNode, ArrayList<IASTPreprocessorStatement>> getMap() {
-			return preprocessorStatements;
-		}
-	}
-	
-	/**
-	 * This class keeps a list of preprocessor statements, to remember which statements still need to be processed.
-	 *
-	 */
-	private class PreprocessorHandler {
-		private ArrayList<IASTPreprocessorStatement> statements = null;
-		
-		public PreprocessorHandler(ArrayList<IASTPreprocessorStatement> statements) {
-			if(statements != null) {
-				this.statements = new ArrayList<IASTPreprocessorStatement>(statements);
-			}
-		}
-		
-		void added(IASTPreprocessorStatement statement) {
-			statements.remove(statement);
-		}
-		
-		boolean hasMore() {
-			return (statements.size() > 0);
-		}
-		
-		IASTPreprocessorStatement getFirst() {
-			return statements.get(0);
-		}
-		
-		int size() {
-			return statements.size();
-		}
-		
-		public ArrayList<IASTPreprocessorStatement> getList() {
-			return new ArrayList<IASTPreprocessorStatement>(statements);
-		}
-		
-	}
-	
-	/**
-	 * This class adds preprocessor statements to the AST structure by visiting it.
-	 *
-	 */
-	private class ASTPreprocessorVisitor extends ASTVisitor {
-		
-		private NodePreprocessorMap map;
-		private PreprocessorHandler handler;
-		
-		{
-			shouldVisitExpressions = true;
-			shouldVisitStatements = true;
-			shouldVisitNames = true;
-			shouldVisitDeclarations = true;
-			shouldVisitDeclSpecifiers = true;
-			shouldVisitDeclarators = true;
-			shouldVisitInitializers = true;
-			shouldVisitBaseSpecifiers = true;
-			shouldVisitNamespaces = true;
-			shouldVisitTemplateParameters = true;
-			shouldVisitParameterDeclarations = true;
-		}
-		
-		public ASTPreprocessorVisitor(NodePreprocessorMap map, PreprocessorHandler handler) {
-			this.map = map;
-			this.handler = handler;
-		}
-		
-		@Override
-		public int visit(IASTName name) {
-			return appendPreprocessorStatements((IASTNode) name);
-		}
-		
-		@Override
-		public int visit(IASTDeclaration declaration) {
-			return appendPreprocessorStatements((IASTNode) declaration);
-		}
-		
-		public int appendPreprocessorStatements(IASTNode node) {
-			while(handler.hasMore()) {
-				IASTPreprocessorStatement statement = handler.getFirst();
-				if(isLeading(node, statement)) {
-					map.addStatement(node, statement);
-					handler.added(statement);
-				}
-				else {
-					return ASTVisitor.PROCESS_CONTINUE;
-				}
-			}
-			return ASTVisitor.PROCESS_ABORT; //No more, time to stop
-		}
-		
-		/**
-		 * Check if the preprocessor statement occurs before the node.
-		 */
-		public boolean isLeading(IASTNode node, IASTPreprocessorStatement statement) {
-			ASTNode n = (ASTNode) node;
-			ASTNode stat = (ASTNode) statement;
-			if(OffsetHelper.getNodeEndPoint(stat) <= OffsetHelper.getNodeOffset(n)) {
-				return true;
-			}
-			return false;
-		}
-	}
 	
 	/**
 	 * 1. Execute the visitor pattern (assuming visiting goes from top to bottom):
