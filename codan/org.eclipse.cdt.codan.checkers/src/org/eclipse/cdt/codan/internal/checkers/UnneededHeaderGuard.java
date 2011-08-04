@@ -158,45 +158,24 @@ public class UnneededHeaderGuard extends AbstractIndexAstChecker {
 		ASTPreprocessorVisitor visitor = new ASTPreprocessorVisitor(map, handler);
 
 		ast.accept(visitor);
-
-		//First check structure of preprocessor statements
-		//* First statement: #ifndef
-		//* Second statement: #define
-		//* Last statement: #endif
-		//* No statement should be at the same 'level 0' as the first and last statement
+		
+		//We need at least #ifndef, #define and #endif
 		if(preprocessorStatements.size() < 3) {
 			return false;
 		}
+		
+		//The 2 first and the last statement should be #ifndef, #define and #endif and use the correct define string
+		if(!isFirstPreprocessorStatementCorrect(preprocessorStatements.get(0), candidate.getDefine())
+				|| !isSecondPreprocessorStatementCorrect(preprocessorStatements.get(1), candidate.getDefine())
+				|| !isLastPreprocessorStatementCorrect(preprocessorStatements.get(preprocessorStatements.size() - 1))) {
+			return false;
+		}
 
+		//Only the first #ifndef and last #endif should be at 'level 0'. All other preprocessor statements should be inside these 2.
 		int indentationLevel = 0;
 		int statementsAtLowestLevel = 0;
 		for(int i=0; i<preprocessorStatements.size(); i++) {
 			IASTPreprocessorStatement statement = preprocessorStatements.get(i);
-			if(i == 0) {
-				if(!(statement instanceof IASTPreprocessorIfndefStatement)) {
-					return false;
-				}
-
-				String condition = new String(((IASTPreprocessorIfndefStatement) statement).getCondition());
-				if(!candidate.getDefine().equals(condition)) {
-					return false;
-				}
-			}
-			else if(i == 1) {
-				if(!(statement instanceof IASTPreprocessorMacroDefinition)) {
-					return false;
-				}
-
-				IASTPreprocessorMacroDefinition macroDefinition = (IASTPreprocessorMacroDefinition) statement;
-				if(!candidate.getDefine().equals(macroDefinition.getName().toString())) {
-					return false;
-				}
-			}
-			else if(i == preprocessorStatements.size() - 1) {
-				if(!(statement instanceof IASTPreprocessorEndifStatement)) {
-					return false;
-				}
-			}
 
 			if(statement instanceof IASTPreprocessorElifStatement
 					|| statement instanceof IASTPreprocessorElseStatement
@@ -266,5 +245,47 @@ public class UnneededHeaderGuard extends AbstractIndexAstChecker {
 		} catch (CoreException e) {
 			return null; //Failed to generate the AST
 		}
+	}
+	
+	/**
+	 * Check if the first preprocessor statement in the included header is correct.
+	 * It needs to be an #ifndef and needs to have to correct define string.
+	 */
+	private boolean isFirstPreprocessorStatementCorrect(IASTPreprocessorStatement statement, String define) {
+		if(!(statement instanceof IASTPreprocessorIfndefStatement)) {
+			return false;
+		}
+
+		String condition = new String(((IASTPreprocessorIfndefStatement) statement).getCondition());
+		if(!define.equals(condition)) {
+			return false;
+		}
+		return true;
+	}
+	
+	/**
+	 * Check if the second preprocessor statement in the included header is correct.
+	 * It needs to be an #define and needs to define the correct string.
+	 */
+	private boolean isSecondPreprocessorStatementCorrect(IASTPreprocessorStatement statement, String define) {
+		if(!(statement instanceof IASTPreprocessorMacroDefinition)) {
+			return false;
+		}
+
+		IASTPreprocessorMacroDefinition macroDefinition = (IASTPreprocessorMacroDefinition) statement;
+		if(!define.equals(macroDefinition.getName().toString())) {
+			return false;
+		}
+		return true;
+	}
+	
+	/**
+	 * The last preprocessor statement needs to be an #endif
+	 */
+	private boolean isLastPreprocessorStatementCorrect(IASTPreprocessorStatement statement) {
+		if(!(statement instanceof IASTPreprocessorEndifStatement)) {
+			return false;
+		}
+		return true;
 	}
 }
