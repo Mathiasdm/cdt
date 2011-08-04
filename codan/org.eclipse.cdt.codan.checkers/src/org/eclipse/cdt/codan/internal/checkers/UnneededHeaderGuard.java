@@ -143,119 +143,128 @@ public class UnneededHeaderGuard extends AbstractIndexAstChecker {
 	}
 	
 	private boolean isIssue(CandidateIssue candidate) {
-		try {
-			IASTPreprocessorIncludeStatement include = candidate.getInclude();
-			
-			if(!include.isResolved()) {
-				//We cannot find the include, so we can't evaluate it
-				return false;
-			}
-			
-			String path = include.getPath();
-			
-			System.out.println(path);
-			
-			ITranslationUnit tu = CoreModelUtil.findTranslationUnitForLocation(new URI(path), null);
-			if(tu == null) {
-				return false; //Didn't find translation unit
-			}
-			IASTTranslationUnit ast = tu.getAST();
-			
-			ArrayList<IASTPreprocessorStatement> preprocessorStatements =
-					new ArrayList<IASTPreprocessorStatement>(
-							Arrays.asList(ast.getAllPreprocessorStatements()));
-			PreprocessorHandler handler = new PreprocessorHandler(preprocessorStatements);
-			NodePreprocessorMap map = new NodePreprocessorMap();
-			
-			ASTPreprocessorVisitor visitor = new ASTPreprocessorVisitor(map, handler);
-			
-			ast.accept(visitor);
-			
-			//First check structure of preprocessor statements
-			//* First statement: #ifndef
-			//* Second statement: #define
-			//* Last statement: #endif
-			//* No statement should be at the same 'level 0' as the first and last statement
-			if(preprocessorStatements.size() < 3) {
-				return false;
-			}
-			
-			int indentationLevel = 0;
-			int statementsAtLowestLevel = 0;
-			for(int i=0; i<preprocessorStatements.size(); i++) {
-				IASTPreprocessorStatement statement = preprocessorStatements.get(i);
-				if(i == 0) {
-					if(!(statement instanceof IASTPreprocessorIfndefStatement)) {
-						return false;
-					}
-					
-					String condition = new String(((IASTPreprocessorIfndefStatement) statement).getCondition());
-					if(!candidate.getDefine().equals(condition)) {
-						return false;
-					}
+		IASTTranslationUnit ast = getASTForCandidateIssue(candidate);
+		
+		if(ast == null) {
+			return false; //We can't generate an AST, so no way to make sure the issue is real
+		}
+
+		ArrayList<IASTPreprocessorStatement> preprocessorStatements =
+				new ArrayList<IASTPreprocessorStatement>(
+						Arrays.asList(ast.getAllPreprocessorStatements()));
+		PreprocessorHandler handler = new PreprocessorHandler(preprocessorStatements);
+		NodePreprocessorMap map = new NodePreprocessorMap();
+
+		ASTPreprocessorVisitor visitor = new ASTPreprocessorVisitor(map, handler);
+
+		ast.accept(visitor);
+
+		//First check structure of preprocessor statements
+		//* First statement: #ifndef
+		//* Second statement: #define
+		//* Last statement: #endif
+		//* No statement should be at the same 'level 0' as the first and last statement
+		if(preprocessorStatements.size() < 3) {
+			return false;
+		}
+
+		int indentationLevel = 0;
+		int statementsAtLowestLevel = 0;
+		for(int i=0; i<preprocessorStatements.size(); i++) {
+			IASTPreprocessorStatement statement = preprocessorStatements.get(i);
+			if(i == 0) {
+				if(!(statement instanceof IASTPreprocessorIfndefStatement)) {
+					return false;
 				}
-				else if(i == 1) {
-					if(!(statement instanceof IASTPreprocessorMacroDefinition)) {
-						return false;
-					}
-					
-					IASTPreprocessorMacroDefinition macroDefinition = (IASTPreprocessorMacroDefinition) statement;
-					if(!candidate.getDefine().equals(macroDefinition.getName().toString())) {
-						return false;
-					}
-				}
-				else if(i == preprocessorStatements.size() - 1) {
-					if(!(statement instanceof IASTPreprocessorEndifStatement)) {
-						return false;
-					}
-				}
-				
-				if(statement instanceof IASTPreprocessorElifStatement
-						|| statement instanceof IASTPreprocessorElseStatement
-						|| statement instanceof IASTPreprocessorEndifStatement) {
-					indentationLevel--;
-				}
-				
-				if(indentationLevel == 0) {
-					statementsAtLowestLevel++;
-				}
-				
-				if(statement instanceof IASTPreprocessorIfndefStatement 
-						|| statement instanceof IASTPreprocessorIfdefStatement
-						|| statement instanceof IASTPreprocessorIfStatement
-						|| statement instanceof IASTPreprocessorElifStatement
-						|| statement instanceof IASTPreprocessorElseStatement) {
-					indentationLevel++;
-				}
-			}
-			
-			if(statementsAtLowestLevel > 2) {
-				return false;
-			}
-			
-			IASTNode[] nodes = ast.getChildren();
-			if(nodes.length > 0) {
-				//#ifndef and #define need to be before the first node
-				IASTNode node = nodes[0];
-				ArrayList<IASTPreprocessorStatement> statements = map.getMap().get(node);
-				if((statements == null) || (statements.size() < 2)) {
+
+				String condition = new String(((IASTPreprocessorIfndefStatement) statement).getCondition());
+				if(!candidate.getDefine().equals(condition)) {
 					return false;
 				}
 			}
-			
-			//We need to have preprocessor statements at the end
-			if(!handler.hasMore()) {
+			else if(i == 1) {
+				if(!(statement instanceof IASTPreprocessorMacroDefinition)) {
+					return false;
+				}
+
+				IASTPreprocessorMacroDefinition macroDefinition = (IASTPreprocessorMacroDefinition) statement;
+				if(!candidate.getDefine().equals(macroDefinition.getName().toString())) {
+					return false;
+				}
+			}
+			else if(i == preprocessorStatements.size() - 1) {
+				if(!(statement instanceof IASTPreprocessorEndifStatement)) {
+					return false;
+				}
+			}
+
+			if(statement instanceof IASTPreprocessorElifStatement
+					|| statement instanceof IASTPreprocessorElseStatement
+					|| statement instanceof IASTPreprocessorEndifStatement) {
+				indentationLevel--;
+			}
+
+			if(indentationLevel == 0) {
+				statementsAtLowestLevel++;
+			}
+
+			if(statement instanceof IASTPreprocessorIfndefStatement 
+					|| statement instanceof IASTPreprocessorIfdefStatement
+					|| statement instanceof IASTPreprocessorIfStatement
+					|| statement instanceof IASTPreprocessorElifStatement
+					|| statement instanceof IASTPreprocessorElseStatement) {
+				indentationLevel++;
+			}
+		}
+
+		if(statementsAtLowestLevel > 2) {
+			return false;
+		}
+
+		IASTNode[] nodes = ast.getChildren();
+		if(nodes.length > 0) {
+			//#ifndef and #define need to be before the first node
+			IASTNode node = nodes[0];
+			ArrayList<IASTPreprocessorStatement> statements = map.getMap().get(node);
+			if((statements == null) || (statements.size() < 2)) {
 				return false;
 			}
-			
-			return true; //All checks passed
-			
+		}
+
+		//We need to have preprocessor statements at the end
+		if(!handler.hasMore()) {
+			return false;
+		}
+
+		return true; //All checks passed
+	}
+
+	/**
+	 * Get the AST for this potential issue. If it is not possible to find the AST, null is returned.
+	 */
+	private IASTTranslationUnit getASTForCandidateIssue(CandidateIssue candidate) {
+		IASTPreprocessorIncludeStatement include = candidate.getInclude();
+		
+		if(!include.isResolved()) {
+			//We cannot find the include, so we can't evaluate it
+			return null;
+		}
+		
+		String path = include.getPath();
+		
+		try {
+			ITranslationUnit tu = CoreModelUtil.findTranslationUnitForLocation(new URI(path), null);
+			if(tu == null) {
+				return null; //Didn't find translation unit
+			}
+			IASTTranslationUnit ast = tu.getAST();
+			return ast;
 		} catch (CModelException e) {
-			return false; //Failed to find a translation unit
+			return null; //Failed to find a translation unit
 		} catch (URISyntaxException e) {
-			return false; //Issue with the path
+			return null; //The path has incorrect syntax
 		} catch (CoreException e) {
-			return false; //Failed to generate full AST
+			return null; //Failed to generate the AST
 		}
 	}
 }
