@@ -14,7 +14,7 @@ public class UnneededHeaderGuardTest extends CheckerTestCase {
 	/* ---- */
 	// @file:header.h
 	// #ifndef ABC_H
-	// #include "includedheader.h"
+	// #include "includedheader.h" //Warning
 	// #endif
 	// int blah();
 	public void testSingleUnneededGuard() {
@@ -27,14 +27,14 @@ public class UnneededHeaderGuardTest extends CheckerTestCase {
 
 	// @file:includedheader.h
 	// int i=1;
-	// #ifndef DEF_H
+	// #ifndef DEF_H //Internal header guards are at the end, check if they still work correctly
 	// #define DEF_H
 	// int foo();
 	// #endif
 	/* ---- */
 	// @file:header.h
 	// #ifndef DEF_H
-	// #include "includedheader.h"
+	// #include "includedheader.h" //No warning
 	// #endif
 	public void testSingleNeededGuardAtEnd() {
 		StringBuffer[] code = getContents(2);
@@ -45,7 +45,7 @@ public class UnneededHeaderGuardTest extends CheckerTestCase {
 	}
 
 	// @file:includedheader.h
-	// int i=1;
+	// int i=1; //Statement outside of the guards causes external guards to be needed
 	// #ifndef DEF_H
 	// #define DEF_H
 	// int foo();
@@ -53,7 +53,7 @@ public class UnneededHeaderGuardTest extends CheckerTestCase {
 	/* ---- */
 	// @file:header.h
 	// #ifndef DEF_H
-	// #include "includedheader.h"
+	// #include "includedheader.h" //No warning
 	// #endif
 	// int bar();
 	public void testSingleNeededGuard() {
@@ -74,7 +74,7 @@ public class UnneededHeaderGuardTest extends CheckerTestCase {
 	/* ---- */
 	// @file:header.h
 	// #ifndef DEF_H
-	// #include "includedheader.h"
+	// #include "includedheader.h" //No warning
 	// #endif
 	// int bar();
 	public void testNeededGuardDueToElse() {
@@ -93,7 +93,7 @@ public class UnneededHeaderGuardTest extends CheckerTestCase {
 	/* ---- */
 	// @file:header.h
 	// #ifndef DEF_H
-	// #include "includedheader.h"
+	// #include "includedheader.h" //Warning
 	// #endif
 	public void testUnneededGuardWithoutOtherStatements() {
 		StringBuffer[] code = getContents(2);
@@ -117,11 +117,11 @@ public class UnneededHeaderGuardTest extends CheckerTestCase {
 	/* ---- */
 	// @file:header.h
 	// #ifndef A
-	// #include "a.h"
+	// #include "a.h" //Warning
 	// #endif
 	//
 	// #ifndef B
-	// #include "b.h"
+	// #include "b.h" //Warning
 	// #endif
 	public void testMultipleUnneededGuards() {
 		StringBuffer[] code = getContents(3);
@@ -132,4 +132,24 @@ public class UnneededHeaderGuardTest extends CheckerTestCase {
 		checkErrorLine(f3, 2);
 		checkErrorLine(f3, 6);
 	}
+
+	//@file:included.hpp
+	// #ifndef INCLUDED_H
+	// #define INCLUDED_H
+	// #endif
+	// i++; //Statement after the header guards: redundant guards are needed.
+	/* ---- */
+	//@file:header.hpp
+	// int i = 1;
+	// #ifndef INCLUDED_H
+	// #include "included.hpp" //No warning
+	// #endif
+	public void testStatementAfterGuards() {
+		StringBuffer[] code = getContents(2);
+		File f1 = loadcode(code[0].toString());
+		File f2 = loadcode(code[1].toString());
+		runOnProject();
+		checkNoErrors();
+	}
+
 }
