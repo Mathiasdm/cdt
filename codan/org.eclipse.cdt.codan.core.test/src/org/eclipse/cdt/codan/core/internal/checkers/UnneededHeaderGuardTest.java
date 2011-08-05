@@ -152,4 +152,29 @@ public class UnneededHeaderGuardTest extends CheckerTestCase {
 		checkNoErrors();
 	}
 
+	//@file:included.hpp
+	// #ifndef INCLUDED_HPP
+	// #define INCLUDED_HPP
+	// #ifndef INCLUDED_INTERNAL
+	// #define INCLUDED_INTERNAL
+	// #endif
+	// int foo();
+	// #endif
+	/* ---- */
+	//@file:header.hpp
+	// int bar();
+	// char* foobar();
+	// #ifndef INCLUDED_HPP
+	// #include "included.hpp"
+	// #endif
+	//
+	public void testNestedPreprocessorStatements() {
+		StringBuffer[] code = getContents(2);
+		File f1 = loadcode(code[0].toString());
+		File f2 = loadcode(code[1].toString());
+		runOnProject();
+		checkErrorLine(f2, 4);
+
+	}
+
 }
