@@ -165,7 +165,7 @@ public class UnneededHeaderGuardTest extends CheckerTestCase {
 	// int bar();
 	// char* foobar();
 	// #ifndef INCLUDED_HPP
-	// #include "included.hpp"
+	// #include "included.hpp" //Warning
 	// #endif
 	//
 	public void testNestedPreprocessorStatements() {
@@ -174,6 +174,28 @@ public class UnneededHeaderGuardTest extends CheckerTestCase {
 		File f2 = loadcode(code[1].toString());
 		runOnProject();
 		checkErrorLine(f2, 4);
+	}
+
+	//@file:included.hpp
+	// #ifndef ABC_H
+	// #define ABC_H
+	// void foo(int, char*);
+	// #endif
+	// #ifndef DEF_H
+	// #define DEF_H
+	// int bar();
+	// #endif
+	/* ---- */
+	//@file:header.hpp
+	// #ifndef ABC_H
+	// #include "included.hpp" //No warning: 2 sequential header guards don't cover the entire file
+	// #endif
+	public void testSequentialPreprocessorStatements() {
+		StringBuffer[] code = getContents(2);
+		File f1 = loadcode(code[0].toString());
+		File f2 = loadcode(code[1].toString());
+		runOnProject();
+		checkNoErrors();
 
 	}
 
