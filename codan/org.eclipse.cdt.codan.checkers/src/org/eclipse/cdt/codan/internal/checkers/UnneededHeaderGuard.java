@@ -192,7 +192,7 @@ public class UnneededHeaderGuard extends AbstractIndexAstChecker {
 			}
 		}
 
-		//We need to have preprocessor statements at the end
+		//We need to have preprocessor statements at the end (to make sure the last '#endif' is below any IASTNode)
 		if(!handler.hasMore()) {
 			return false;
 		}
