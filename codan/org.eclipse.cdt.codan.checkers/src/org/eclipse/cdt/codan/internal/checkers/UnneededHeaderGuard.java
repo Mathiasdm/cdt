@@ -154,6 +154,29 @@ public class UnneededHeaderGuard extends AbstractIndexAstChecker {
 		}
 
 		//Only the first #ifndef and last #endif should be at 'level 0'. All other preprocessor statements should be inside these 2.
+		if(!isToplevelStatementCountCorrect(preprocessorStatements)) {
+			return false;
+		}
+
+		IASTNode[] nodes = ast.getChildren();
+		if(nodes.length > 0) {
+			//#ifndef and #define need to be before the first node
+			IASTNode node = nodes[0];
+			ArrayList<IASTPreprocessorStatement> statements = map.getMap().get(node);
+			if((statements == null) || (statements.size() < 2)) {
+				return false;
+			}
+		}
+
+		//We need to have preprocessor statements at the end (to make sure the last '#endif' is below any IASTNode)
+		if(!handler.hasMore()) {
+			return false;
+		}
+
+		return true; //All checks passed
+	}
+
+	private boolean isToplevelStatementCountCorrect(ArrayList<IASTPreprocessorStatement> preprocessorStatements) {
 		int indentationLevel = 0;
 		int statementsAtLowestLevel = 0;
 		for(int i=0; i<preprocessorStatements.size(); i++) {
@@ -178,26 +201,10 @@ public class UnneededHeaderGuard extends AbstractIndexAstChecker {
 			}
 		}
 
-		if(statementsAtLowestLevel > 2) {
+		if(statementsAtLowestLevel != 2) {
 			return false;
 		}
-
-		IASTNode[] nodes = ast.getChildren();
-		if(nodes.length > 0) {
-			//#ifndef and #define need to be before the first node
-			IASTNode node = nodes[0];
-			ArrayList<IASTPreprocessorStatement> statements = map.getMap().get(node);
-			if((statements == null) || (statements.size() < 2)) {
-				return false;
-			}
-		}
-
-		//We need to have preprocessor statements at the end (to make sure the last '#endif' is below any IASTNode)
-		if(!handler.hasMore()) {
-			return false;
-		}
-
-		return true; //All checks passed
+		return true;
 	}
 
 	/**
