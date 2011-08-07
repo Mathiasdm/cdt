@@ -1,3 +1,14 @@
+/*******************************************************************************
+ * Copyright (c) 2011 Mathias De Maré
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License v1.0
+ * which accompanies this distribution, and is available at
+ * http://www.eclipse.org/legal/epl-v10.html
+ *
+ * Contributors:
+ *     Mathias De Maré  - initial implementation
+ *******************************************************************************/
+
 package org.eclipse.cdt.codan.internal.checkers;
 
 import java.net.URI;
@@ -27,7 +38,9 @@ import org.eclipse.cdt.core.model.ITranslationUnit;
 import org.eclipse.core.runtime.CoreException;
 
 /**
- * Checker to see if extra header guards are unneeded.
+ * Checks if unneeded external header guards are present.
+ * <p>
+ * An external header guard is unneeded if an included header already has guards itself.
  * @author Mathias De Maré
  *
  */
@@ -62,10 +75,18 @@ public class UnneededHeaderGuard extends AbstractIndexAstChecker {
 		}
 	}
 	
+	/**
+	 * Potential unneeded header guard.
+	 */
 	private class CandidateIssue {
 		private String define;
 		private IASTPreprocessorIncludeStatement include;
 		
+		/**
+		 * Construct a candidate issue
+		 * @param define The String checked in the '#ifndef' statement.
+		 * @param include The include statement surrounded by header guards.
+		 */
 		public CandidateIssue(String define, IASTPreprocessorIncludeStatement include) {
 			this.define = define;
 			this.include = include;
@@ -119,11 +140,15 @@ public class UnneededHeaderGuard extends AbstractIndexAstChecker {
 						candidateIssues.add(new CandidateIssue(define, include));
 					}
 					state = PositionState.START;
+					break;
 			}
 		}
 		return candidateIssues;
 	}
 	
+	/**
+	 * Check if the potential issue is an actual issue by checking the included header.
+	 */
 	private boolean isIssue(CandidateIssue candidate) {
 		IASTTranslationUnit ast = getASTForCandidateIssue(candidate);
 		
@@ -139,6 +164,7 @@ public class UnneededHeaderGuard extends AbstractIndexAstChecker {
 
 		ASTPreprocessorVisitor visitor = new ASTPreprocessorVisitor(map, handler);
 
+		//Add preprocessor statements
 		ast.accept(visitor);
 		
 		//We need at least #ifndef, #define and #endif
@@ -166,16 +192,19 @@ public class UnneededHeaderGuard extends AbstractIndexAstChecker {
 			if((statements == null) || (statements.size() < 2)) {
 				return false;
 			}
-		}
-
-		//We need to have preprocessor statements at the end (to make sure the last '#endif' is below any IASTNode)
-		if(!handler.hasMore()) {
-			return false;
+			//We need to have preprocessor statements at the end (to make sure the last '#endif' is below any IASTNode)
+			if(!handler.hasMore()) {
+				return false;
+			}
 		}
 
 		return true; //All checks passed
 	}
 
+	/**
+	 * Check if the amount of top level preprocessor statements is correct
+	 * (only the first '#ifndef' and the last '#endif' can be at the top level).
+	 */
 	private boolean isToplevelStatementCountCorrect(ArrayList<IASTPreprocessorStatement> preprocessorStatements) {
 		int indentationLevel = 0;
 		int statementsAtLowestLevel = 0;
