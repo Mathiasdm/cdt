@@ -409,7 +409,7 @@
             description="%problem.description.UnneededHeaderGuard"
             id="org.eclipse.cdt.codan.internal.checkers.UnneededHeaderGuard"
             messagePattern="%problem.messagePattern.UnneededHeaderGuard"
-            name="%problem.name.UnneededHeaderGuard">
+            name="%checker.name.UnneededHeaderGuard">
          </problem>
       </checker>
    </extension>
