@@ -398,7 +398,7 @@
             name="%problem.name.ClassMembersInitialization">
          </problem>
       </checker>
-            <checker
+      <checker
             class="org.eclipse.cdt.codan.internal.checkers.UnneededHeaderGuard"
             id="org.eclipse.cdt.codan.internal.checkers.UnneededHeaderGuard"
             name="%checker.name.UnneededHeaderGuard">
