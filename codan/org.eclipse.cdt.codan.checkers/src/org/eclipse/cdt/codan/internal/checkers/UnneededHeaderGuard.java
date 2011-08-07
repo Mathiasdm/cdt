@@ -96,7 +96,7 @@ public class UnneededHeaderGuard extends AbstractIndexAstChecker {
 	 * The possible states when trying to detect an issue.
 	 */
 	private enum PositionState {
-		START, IFNDEF, INCLUDE
+		START, IFNDEF, INCLUDE, ENDIF
 	}
 	
 	/**
@@ -128,9 +128,15 @@ public class UnneededHeaderGuard extends AbstractIndexAstChecker {
 					break;
 				case INCLUDE:
 					if(statement instanceof IASTPreprocessorEndifStatement) {
-						candidateIssues.add(new CandidateIssue(define, include));
+						state = PositionState.ENDIF;
 					}
-					state = PositionState.START;
+					else {
+						state = PositionState.START;
+					}
+			}
+			if(state == PositionState.ENDIF) {
+				candidateIssues.add(new CandidateIssue(define, include));
+				state = PositionState.START;
 			}
 		}
 		return candidateIssues;
