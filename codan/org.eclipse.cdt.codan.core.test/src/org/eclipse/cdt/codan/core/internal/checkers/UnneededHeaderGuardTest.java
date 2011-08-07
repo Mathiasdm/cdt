@@ -14,7 +14,7 @@ import java.io.File;
 
 import org.eclipse.cdt.codan.core.test.CheckerTestCase;
 
-
+@SuppressWarnings("unused")
 public class UnneededHeaderGuardTest extends CheckerTestCase {
 
 	// @file:includedheader.h
