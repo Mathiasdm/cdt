@@ -87,6 +87,27 @@ public class UnneededHeaderGuardTest extends CheckerTestCase {
 
 	// @file:includedheader.h
 	// #ifndef DEF_H
+	// //foofoo
+	// #define DEF_H
+	// //barbar
+	// int foo();
+	// #endif
+	/* ---- */
+	// @file:header.h
+	// #ifndef DEF_H
+	// #include "includedheader.h"
+	// #endif
+	// int bar();
+	public void testNeededGuardDespiteCommentsInIncludedFile() {
+		StringBuffer[] code = getContents(2);
+		File f1 = loadcode(code[0].toString());
+		File f2 = loadcode(code[1].toString());
+		runOnProject();
+		checkNoErrors();
+	}
+
+	// @file:includedheader.h
+	// #ifndef DEF_H
 	// #define DEF_H
 	// int foo();
 	// #endif
