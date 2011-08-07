@@ -33,7 +33,19 @@ import org.eclipse.core.runtime.CoreException;
  */
 public class UnneededHeaderGuard extends AbstractIndexAstChecker {
 	public static final String ER_ID = "org.eclipse.cdt.codan.internal.checkers.UnneededHeaderGuard"; //$NON-NLS-1$
-
+	
+	/**
+	 * 1. Execute the visitor pattern (assuming visiting goes from top to bottom):
+	 * For each preprocessor statement:
+	 * 	- If it is before the node, add it as leading
+	 *  - If it is after the node, add it as trailing
+	 *  (No need to add preprocessor statements as freestanding in our case, since it doesn't matter
+	 * 2. For each node:
+	 *  if the preprocessor statements are formed correctly (#ifndef, #include, #endif),
+	 *  mark it as a candidate.
+	 * 3. For each candidate, check if the #include file starts and ends with the same #ifndef and #endif.
+	 *    If yes: place a codan warning.
+	 */
 	public void processAst(IASTTranslationUnit ast) {
 		ArrayList<IASTPreprocessorStatement> preprocessorStatements =
 				new ArrayList<IASTPreprocessorStatement>(
