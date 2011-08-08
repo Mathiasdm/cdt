@@ -18,6 +18,7 @@ import org.eclipse.cdt.core.dom.ast.IASTDeclaration;
 import org.eclipse.cdt.core.dom.ast.IASTDeclarator;
 import org.eclipse.cdt.core.dom.ast.IASTEnumerationSpecifier.IASTEnumerator;
 import org.eclipse.cdt.core.dom.ast.IASTExpression;
+import org.eclipse.cdt.core.dom.ast.IASTFileLocation;
 import org.eclipse.cdt.core.dom.ast.IASTInitializer;
 import org.eclipse.cdt.core.dom.ast.IASTName;
 import org.eclipse.cdt.core.dom.ast.IASTNode;
@@ -33,9 +34,6 @@ import org.eclipse.cdt.core.dom.ast.cpp.ICPPASTCapture;
 import org.eclipse.cdt.core.dom.ast.cpp.ICPPASTCompositeTypeSpecifier.ICPPASTBaseSpecifier;
 import org.eclipse.cdt.core.dom.ast.cpp.ICPPASTNamespaceDefinition;
 import org.eclipse.cdt.core.dom.ast.cpp.ICPPASTTemplateParameter;
-import org.eclipse.cdt.internal.core.dom.parser.ASTNode;
-import org.eclipse.cdt.internal.core.dom.rewrite.util.OffsetHelper;
-
 
 
 /**
@@ -176,13 +174,29 @@ public class ASTPreprocessorVisitor extends ASTVisitor {
 		return ASTVisitor.PROCESS_ABORT; //No more, time to stop
 	}
 	
+	public int getNodeOffset(IASTNode node) {
+		IASTFileLocation location = node.getFileLocation();
+		return location.getNodeOffset();
+	}
+	
+	public int getNodeLength(IASTNode node) {
+		IASTFileLocation location = node.getFileLocation();
+		return location.getNodeLength();
+	}
+	
+	public int getNodeEndPoint(IASTNode node) {
+		return getNodeOffset(node) + getNodeLength(node);
+	}
+	
 	/**
 	 * Check if the preprocessor statement occurs before the node.
 	 */
 	public boolean isLeading(IASTNode node, IASTPreprocessorStatement statement) {
-		ASTNode n = (ASTNode) node;
-		ASTNode stat = (ASTNode) statement;
-		if(OffsetHelper.getNodeEndPoint(stat) <= OffsetHelper.getNodeOffset(n)) {
+		if(statement.getFileLocation() == null || node.getFileLocation() == null) {
+			return false;
+		}
+		
+		if(getNodeEndPoint(statement) <= getNodeOffset(node)) {
 			return true;
 		}
 		return false;
