@@ -403,7 +403,7 @@
             id="org.eclipse.cdt.codan.internal.checkers.UnneededHeaderGuard"
             name="%checker.name.UnneededHeaderGuard">
          <problem
-            category="org.eclipse.cdt.codan.core.categories.ProgrammingProblems"
+            category="org.eclipse.cdt.codan.core.categories.CodeStyle"
             defaultEnabled="true"
             defaultSeverity="Warning"
             description="%problem.description.UnneededHeaderGuard"
