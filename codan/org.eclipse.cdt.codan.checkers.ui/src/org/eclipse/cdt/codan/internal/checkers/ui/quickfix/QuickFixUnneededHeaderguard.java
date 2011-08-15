@@ -1,22 +1,86 @@
 package org.eclipse.cdt.codan.internal.checkers.ui.quickfix;
 
+import org.eclipse.cdt.codan.internal.checkers.ui.CheckersUiActivator;
 import org.eclipse.cdt.codan.internal.checkers.ui.Messages;
-import org.eclipse.cdt.codan.ui.AbstractCodanCMarkerResolution;
+import org.eclipse.cdt.codan.ui.AbstractAstRewriteQuickFix;
+import org.eclipse.cdt.core.dom.ast.IASTFileLocation;
+import org.eclipse.cdt.core.dom.ast.IASTPreprocessorStatement;
+import org.eclipse.cdt.core.dom.ast.IASTTranslationUnit;
+import org.eclipse.cdt.core.dom.rewrite.ASTRewrite;
+import org.eclipse.cdt.core.index.IIndex;
+import org.eclipse.cdt.core.model.ITranslationUnit;
 import org.eclipse.core.resources.IMarker;
 import org.eclipse.core.runtime.CoreException;
-import org.eclipse.jface.text.IDocument;
+import org.eclipse.core.runtime.NullProgressMonitor;
+import org.eclipse.ltk.core.refactoring.Change;
 
-public class QuickFixUnneededHeaderguard extends AbstractCodanCMarkerResolution {
+public class QuickFixUnneededHeaderguard extends AbstractAstRewriteQuickFix {
 	public String getLabel() {
 		// TODO Auto-generated method stub
 		return Messages.UnneededHeaderguardQuickFix_Message;
 	}
 
 	@Override
-	public void apply(IMarker marker, IDocument document) {
-		System.out.println(marker.LINE_NUMBER);
+	public void modifyAST(IIndex index, IMarker marker) {
+		int markerPos = 0;
 		try {
-			System.out.println(marker.getAttribute(IMarker.LINE_NUMBER));
+			Object pos = marker.getAttribute(IMarker.CHAR_START);
+			if(pos instanceof Integer) {
+				markerPos = (Integer) pos;
+			}
+			else {
+				return; //Couldn't find marker (TODO: log)
+			}
+		} catch (CoreException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+		IASTTranslationUnit ast;
+		try {
+			ITranslationUnit tu = getTranslationUnitViaEditor(marker);
+			ast = tu.getAST(index, ITranslationUnit.AST_SKIP_INDEXED_HEADERS);
+		} catch (CoreException e) {
+			CheckersUiActivator.log(e);
+			return;
+		}
+		
+		IASTPreprocessorStatement[] statements = ast.getAllPreprocessorStatements();
+		
+		IASTPreprocessorStatement previous = null;
+		IASTPreprocessorStatement next = null;
+		
+		for(IASTPreprocessorStatement statement: statements) {
+			IASTFileLocation loc = statement.getFileLocation();
+			if(loc == null) {
+				continue;
+			}
+			
+			int offset = loc.getNodeOffset();
+			if(offset < markerPos) {
+				//Go over all the earlier statements
+				//until we find the last one before the marked statement
+				previous = statement;
+			}
+			else if((offset > markerPos) && (next == null)) {
+				//Get the first statement behind the marked one
+				next = statement;
+			}
+		}
+		ASTRewrite r = ASTRewrite.create(ast);
+		r.remove(previous, null);
+		r.remove(next, null);
+		
+		Change c = r.rewriteAST();
+		try {
+			c.perform(new NullProgressMonitor());
+		} catch (CoreException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+		try {
+			marker.delete();
 		} catch (CoreException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
