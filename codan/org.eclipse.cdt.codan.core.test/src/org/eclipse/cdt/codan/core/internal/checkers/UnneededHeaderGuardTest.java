@@ -29,7 +29,7 @@ public class UnneededHeaderGuardTest extends CheckerTestCase {
 	// #endif
 	// int blah();
 	public void testSingleUnneededGuard() {
-		StringBuffer[] code = getContents(2);
+		StringBuilder[] code = getContents(2);
 		File f1 = loadcode(code[0].toString());
 		File f2 = loadcode(code[1].toString());
 		runOnProject();
@@ -48,7 +48,7 @@ public class UnneededHeaderGuardTest extends CheckerTestCase {
 	// #include "includedheader.h" //No warning
 	// #endif
 	public void testSingleNeededGuardAtEnd() {
-		StringBuffer[] code = getContents(2);
+		StringBuilder[] code = getContents(2);
 		File f1 = loadcode(code[0].toString());
 		File f2 = loadcode(code[1].toString());
 		runOnProject();
@@ -68,7 +68,7 @@ public class UnneededHeaderGuardTest extends CheckerTestCase {
 	// #endif
 	// int bar();
 	public void testSingleNeededGuard() {
-		StringBuffer[] code = getContents(2);
+		StringBuilder[] code = getContents(2);
 		File f1 = loadcode(code[0].toString());
 		File f2 = loadcode(code[1].toString());
 		runOnProject();
@@ -89,7 +89,7 @@ public class UnneededHeaderGuardTest extends CheckerTestCase {
 	// #endif
 	// int bar();
 	public void testNeededGuardDueToElse() {
-		StringBuffer[] code = getContents(2);
+		StringBuilder[] code = getContents(2);
 		File f1 = loadcode(code[0].toString());
 		File f2 = loadcode(code[1].toString());
 		runOnProject();
@@ -107,7 +107,7 @@ public class UnneededHeaderGuardTest extends CheckerTestCase {
 	// #include "includedheader.h" //Warning
 	// #endif
 	public void testUnneededGuardWithoutOtherStatements() {
-		StringBuffer[] code = getContents(2);
+		StringBuilder[] code = getContents(2);
 		File f1 = loadcode(code[0].toString());
 		File f2 = loadcode(code[1].toString());
 		runOnProject();
@@ -135,7 +135,7 @@ public class UnneededHeaderGuardTest extends CheckerTestCase {
 	// #include "b.h" //Warning
 	// #endif
 	public void testMultipleUnneededGuards() {
-		StringBuffer[] code = getContents(3);
+		StringBuilder[] code = getContents(3);
 		File f1 = loadcode(code[0].toString());
 		File f2 = loadcode(code[1].toString());
 		File f3 = loadcode(code[2].toString());
@@ -156,7 +156,7 @@ public class UnneededHeaderGuardTest extends CheckerTestCase {
 	// #include "included.hpp" //No warning
 	// #endif
 	public void testStatementAfterGuards() {
-		StringBuffer[] code = getContents(2);
+		StringBuilder[] code = getContents(2);
 		File f1 = loadcode(code[0].toString());
 		File f2 = loadcode(code[1].toString());
 		runOnProject();
@@ -180,7 +180,7 @@ public class UnneededHeaderGuardTest extends CheckerTestCase {
 	// #endif
 	//
 	public void testNestedPreprocessorStatements() {
-		StringBuffer[] code = getContents(2);
+		StringBuilder[] code = getContents(2);
 		File f1 = loadcode(code[0].toString());
 		File f2 = loadcode(code[1].toString());
 		runOnProject();
@@ -202,7 +202,7 @@ public class UnneededHeaderGuardTest extends CheckerTestCase {
 	// #include "included.hpp" //No warning: 2 sequential header guards don't cover the entire file
 	// #endif
 	public void testSequentialPreprocessorStatements() {
-		StringBuffer[] code = getContents(2);
+		StringBuilder[] code = getContents(2);
 		File f1 = loadcode(code[0].toString());
 		File f2 = loadcode(code[1].toString());
 		runOnProject();
