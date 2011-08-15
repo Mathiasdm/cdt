@@ -20,6 +20,7 @@ public class Messages extends NLS {
 	public static String CatchByConstReferenceQuickFix_Message;
 	public static String QuickFixAssignmentInCondition_Message;
 	public static String SuggestedParenthesisQuickFix_Message;
+	public static String UnneededHeaderguardQuickFix_Message;
 
 	static {
 		NLS.initializeMessages(Messages.class.getName(), Messages.class);
