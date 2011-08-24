@@ -12,6 +12,7 @@ import org.eclipse.cdt.core.model.ITranslationUnit;
 import org.eclipse.core.resources.IMarker;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.NullProgressMonitor;
+import org.eclipse.jface.text.IDocument;
 import org.eclipse.ltk.core.refactoring.Change;
 
 public class QuickFixUnneededHeaderguard extends AbstractAstRewriteQuickFix {
@@ -22,6 +23,8 @@ public class QuickFixUnneededHeaderguard extends AbstractAstRewriteQuickFix {
 
 	@Override
 	public void modifyAST(IIndex index, IMarker marker) {
+		String markerFile = marker.getResource().getLocation().toString();
+		System.out.println("markerFile: " + markerFile);
 		int markerPos = 0;
 		try {
 			Object pos = marker.getAttribute(IMarker.CHAR_START);
@@ -52,7 +55,8 @@ public class QuickFixUnneededHeaderguard extends AbstractAstRewriteQuickFix {
 		
 		for(IASTPreprocessorStatement statement: statements) {
 			IASTFileLocation loc = statement.getFileLocation();
-			if(loc == null) {
+			System.out.println("Statement location: " + loc.getFileName());
+			if(loc == null || markerFile == null || !markerFile.equals(loc.getFileName())) {
 				continue;
 			}
 			
@@ -68,12 +72,15 @@ public class QuickFixUnneededHeaderguard extends AbstractAstRewriteQuickFix {
 			}
 		}
 		ASTRewrite r = ASTRewrite.create(ast);
-		r.remove(previous, null);
-		r.remove(next, null);
+		if(previous != null && next != null) {
+			r.remove(previous, null);
+			r.remove(next, null);
+		}
 		
 		Change c = r.rewriteAST();
 		try {
 			c.perform(new NullProgressMonitor());
+			IDocument doc = openDocument(marker);
 		} catch (CoreException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
