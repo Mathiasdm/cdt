@@ -15,7 +15,7 @@ import org.eclipse.core.runtime.NullProgressMonitor;
 import org.eclipse.jface.text.IDocument;
 import org.eclipse.ltk.core.refactoring.Change;
 
-public class QuickFixUnneededHeaderguard extends AbstractAstRewriteQuickFix {
+public class QuickFixUnneededHeaderGuard extends AbstractAstRewriteQuickFix {
 	public String getLabel() {
 		// TODO Auto-generated method stub
 		return Messages.UnneededHeaderguardQuickFix_Message;

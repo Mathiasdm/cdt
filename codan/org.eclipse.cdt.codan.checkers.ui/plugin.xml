@@ -38,7 +38,7 @@
              problemId="org.eclipse.cdt.codan.internal.checkers.VariableResolutionProblem">
        </resolution>
        <resolution
-             class="org.eclipse.cdt.codan.internal.checkers.ui.quickfix.QuickFixUnneededHeaderguard"
+             class="org.eclipse.cdt.codan.internal.checkers.ui.quickfix.QuickFixUnneededHeaderGuard"
              problemId="org.eclipse.cdt.codan.internal.checkers.UnneededHeaderGuard">
        </resolution>
 	   <resolution

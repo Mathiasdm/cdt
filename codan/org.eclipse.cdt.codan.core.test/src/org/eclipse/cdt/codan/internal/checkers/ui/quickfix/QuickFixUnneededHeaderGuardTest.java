@@ -13,7 +13,7 @@ public class QuickFixUnneededHeaderGuardTest extends QuickFixTestCase {
 	@SuppressWarnings("restriction")
 	protected AbstractCodanCMarkerResolution createQuickFix() {
 		// TODO Auto-generated method stub
-		return new QuickFixUnneededHeaderguard();
+		return new QuickFixUnneededHeaderGuard();
 	}
 
 	// @file:includedheader.h
@@ -29,7 +29,7 @@ public class QuickFixUnneededHeaderGuardTest extends QuickFixTestCase {
 	// int blah();
 	@SuppressWarnings("restriction")
 	public void testSimple() {
-		setQuickFix(new QuickFixUnneededHeaderguard());
+		setQuickFix(new QuickFixUnneededHeaderGuard());
 		StringBuilder[] code = getContents(2);
 		File f1 = loadcode(code[0].toString());
 		File f2 = loadcode(code[1].toString());
