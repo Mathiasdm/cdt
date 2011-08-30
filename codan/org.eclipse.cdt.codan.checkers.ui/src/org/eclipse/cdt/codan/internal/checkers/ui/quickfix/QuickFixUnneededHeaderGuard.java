@@ -12,19 +12,16 @@ import org.eclipse.cdt.core.model.ITranslationUnit;
 import org.eclipse.core.resources.IMarker;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.NullProgressMonitor;
-import org.eclipse.jface.text.IDocument;
 import org.eclipse.ltk.core.refactoring.Change;
 
 public class QuickFixUnneededHeaderGuard extends AbstractAstRewriteQuickFix {
 	public String getLabel() {
-		// TODO Auto-generated method stub
 		return Messages.UnneededHeaderguardQuickFix_Message;
 	}
 
 	@Override
 	public void modifyAST(IIndex index, IMarker marker) {
 		String markerFile = marker.getResource().getLocation().toString();
-		System.out.println("markerFile: " + markerFile);
 		int markerPos = 0;
 		try {
 			Object pos = marker.getAttribute(IMarker.CHAR_START);
@@ -32,11 +29,12 @@ public class QuickFixUnneededHeaderGuard extends AbstractAstRewriteQuickFix {
 				markerPos = (Integer) pos;
 			}
 			else {
-				return; //Couldn't find marker (TODO: log)
+				CheckersUiActivator.log("Couldn't find IMarker location."); //$NON-NLS-1$
+				return;
 			}
 		} catch (CoreException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			CheckersUiActivator.log(e);
+			return;
 		}
 		
 		IASTTranslationUnit ast;
@@ -55,7 +53,6 @@ public class QuickFixUnneededHeaderGuard extends AbstractAstRewriteQuickFix {
 		
 		for(IASTPreprocessorStatement statement: statements) {
 			IASTFileLocation loc = statement.getFileLocation();
-			System.out.println("Statement location: " + loc.getFileName());
 			if(loc == null || markerFile == null || !markerFile.equals(loc.getFileName())) {
 				continue;
 			}
@@ -71,26 +68,30 @@ public class QuickFixUnneededHeaderGuard extends AbstractAstRewriteQuickFix {
 				next = statement;
 			}
 		}
+		
 		ASTRewrite r = ASTRewrite.create(ast);
 		if(previous != null && next != null) {
 			r.remove(previous, null);
 			r.remove(next, null);
 		}
+		else {
+			CheckersUiActivator.log("No statements available to remove."); //$NON-NLS-1$
+			return;
+		}
 		
 		Change c = r.rewriteAST();
 		try {
 			c.perform(new NullProgressMonitor());
-			IDocument doc = openDocument(marker);
 		} catch (CoreException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			CheckersUiActivator.log(e);
+			return;
 		}
 		
 		try {
 			marker.delete();
 		} catch (CoreException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			CheckersUiActivator.log(e);
+			return;
 		}
 	}
 }

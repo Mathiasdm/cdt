@@ -27,7 +27,7 @@ public class QuickFixUnneededHeaderGuardTest extends QuickFixTestCase {
 	// #include "includedheader.h" //Warning
 	// #endif
 	// int blah();
-	@SuppressWarnings("restriction")
+	@SuppressWarnings({ "restriction", "nls" })
 	public void testSimple() {
 		setQuickFix(new QuickFixUnneededHeaderGuard());
 		StringBuilder[] code = getContents(2);
@@ -35,7 +35,6 @@ public class QuickFixUnneededHeaderGuardTest extends QuickFixTestCase {
 		File f2 = loadcode(code[1].toString());
 
 		getContents(f1);
-		System.out.println("-----");
 		getContents(f2);
 
 		runCodan();
@@ -52,10 +51,10 @@ public class QuickFixUnneededHeaderGuardTest extends QuickFixTestCase {
 	private String getContents(File f1) {
 		try {
 			BufferedReader reader = new BufferedReader(new FileReader(f1));
-			String contents = "";
+			String contents = ""; //$NON-NLS-1$
 			String line;
 			while((line = reader.readLine()) != null) {
-				contents += line + '\n';
+				contents += line + System.getProperty("line.separator"); //$NON-NLS-1$
 			}
 			System.out.println(contents);
 			return contents;
