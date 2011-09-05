@@ -230,7 +230,9 @@ public final class ASTRewrite {
 			}
 		}
 		if (node instanceof IASTPreprocessorStatement) {
-			throw new IllegalArgumentException("Rewriting preprocessor statements is not yet supported"); //$NON-NLS-1$
+			if(op != Operation.remove) {
+				throw new IllegalArgumentException("Rewriting preprocessor statements is not yet supported"); //$NON-NLS-1$
+			}
 		}
 		if (node instanceof IASTProblem) {
 			throw new IllegalArgumentException("Rewriting problem nodes is not supported"); //$NON-NLS-1$

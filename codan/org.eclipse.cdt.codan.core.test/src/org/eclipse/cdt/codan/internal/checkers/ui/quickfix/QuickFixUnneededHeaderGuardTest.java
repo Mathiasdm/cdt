@@ -34,9 +34,6 @@ public class QuickFixUnneededHeaderGuardTest extends QuickFixTestCase {
 		File f1 = loadcode(code[0].toString());
 		File f2 = loadcode(code[1].toString());
 
-		getContents(f1);
-		getContents(f2);
-
 		runCodan();
 		doRunQuickFix();
 
@@ -48,6 +45,72 @@ public class QuickFixUnneededHeaderGuardTest extends QuickFixTestCase {
 		assertFalse(result2.contains("#endif"));
 	}
 
+	//@file:included.h
+	//#ifndef BLAH_H
+	//#define BLAH_H
+	//int foo();
+	//#endif
+	/* ---- */
+	//@file:includer.h
+	//#ifndef BLAH_H
+	//#include "included.h"
+	//#endif
+	/* ---- */
+	//@file:a.h
+	//#ifndef A_H
+	//#define A_H
+	//int bar();
+	//#endif
+	/* ---- */
+	//@file:a.c
+	//#include "a.h"
+	// int bar() {}
+	/* ---- */
+	//@file:b.h
+	//#ifndef B_H
+	//#define B_H
+	//#include "included.h"
+	//#include "a.h"
+	//int the_function();
+	//#endif B_H
+	@SuppressWarnings({ "restriction" })
+	public void testMultipleFiles() {
+		setQuickFix(new QuickFixUnneededHeaderGuard());
+		StringBuilder[] code = getContents(5);
+		File[] files = loadcode(code);
+
+		runCodan();
+		doRunQuickFix();
+
+		String[] contents = getContents(files);
+		assertTrue(hasGuards(contents[0]));
+		assertFalse(hasGuards(contents[1]));
+	}
+
+	@SuppressWarnings("nls")
+	private boolean hasGuards(String s) {
+		if(s.contains("#ifndef") && s.contains("#endif")) {
+			return true;
+		}
+		return false;
+	}
+
+	private String[] getContents(File[] files) {
+		String[] contents = new String[files.length];
+		for(int i=0; i<files.length; i++) {
+			contents[i] = getContents(files[i]);
+		}
+		return contents;
+	}
+
+	private File[] loadcode(StringBuilder[] code) {
+		File[] files = new File[code.length];
+		for(int i=0; i<code.length; i++) {
+			files[i] = loadcode(code[i].toString());
+		}
+		return files;
+	}
+
 	private String getContents(File f1) {
 		try {
 			BufferedReader reader = new BufferedReader(new FileReader(f1));
@@ -56,7 +119,6 @@ public class QuickFixUnneededHeaderGuardTest extends QuickFixTestCase {
 			while((line = reader.readLine()) != null) {
 				contents += line + System.getProperty("line.separator"); //$NON-NLS-1$
 			}
-			System.out.println(contents);
 			return contents;
 		} catch (FileNotFoundException e1) {
 			return null;
