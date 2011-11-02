@@ -398,5 +398,19 @@
             name="%problem.name.ClassMembersInitialization">
          </problem>
       </checker>
+            <checker
+            class="org.eclipse.cdt.codan.internal.checkers.IncorrectIncludeChecker"
+            id="org.eclipse.cdt.codan.internal.checkers.IncorrectIncludeChecker"
+            name="%checker.name.IncorrectIncludeChecker">
+         <problem
+            category="org.eclipse.cdt.codan.core.categories.ProgrammingProblems"
+            defaultEnabled="true"
+            defaultSeverity="Warning"
+            description="%problem.description.IncorrectIncludeChecker"
+            id="org.eclipse.cdt.codan.internal.checkers.IncorrectIncludeChecker"
+            messagePattern="%problem.messagePattern.IncorrectIncludeChecker"
+            name="%problem.name.ClassMembersInitialization">
+         </problem>
+      </checker>
    </extension>
 </plugin>
