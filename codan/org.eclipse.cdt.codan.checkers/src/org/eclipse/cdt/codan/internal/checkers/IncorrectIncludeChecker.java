@@ -4,6 +4,9 @@ import org.eclipse.cdt.codan.core.cxx.model.AbstractIndexAstChecker;
 import org.eclipse.cdt.core.dom.ast.IASTTranslationUnit;
 
 public class IncorrectIncludeChecker extends AbstractIndexAstChecker {
+	
+	public static final String ER_ID = "org.eclipse.cdt.codan.internal.checkers.IncorrectIncludeChecker"; //$NON-NLS-1$
+	
 	public void processAst(IASTTranslationUnit ast) {
 		/*
 		 * TODO:
