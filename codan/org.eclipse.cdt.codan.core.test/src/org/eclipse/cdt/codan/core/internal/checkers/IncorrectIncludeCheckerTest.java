@@ -9,4 +9,18 @@ public class IncorrectIncludeCheckerTest extends CheckerTestCase {
 		super.setUp();
 		enableProblems(IncorrectIncludeChecker.ER_ID);
 	}
+
+	// @file:includedheader.h
+	// int foo();
+	/* ---- */
+	// @file:main.c
+	// #include <stdio.h>
+	// #include "includedheader.h"
+	// int main() {
+	//   printf("Hello world!");
+	// }
+	public void testNotNeededInclude() {
+		loadCodeAndRun(getAboveComment());
+		checkErrorLine(6);
+	}
 }

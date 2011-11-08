@@ -17,5 +17,6 @@ public class IncorrectIncludeChecker extends AbstractIndexAstChecker {
 		 *     * Files directly included but _not_ used
 		 *     * Files used but _not_ directly included
 		 */
+		System.out.println(ast.getContainingFilename());
 	}
 }
