@@ -6,7 +6,6 @@ import java.util.List;
 import java.util.Map;
 
 import org.eclipse.cdt.codan.core.cxx.model.AbstractIndexAstChecker;
-import org.eclipse.cdt.codan.internal.checkers.IncorrectIncludeChecker.IncludeGraphEntry;
 import org.eclipse.cdt.core.dom.ast.ASTVisitor;
 import org.eclipse.cdt.core.dom.ast.IASTPreprocessorIncludeStatement;
 import org.eclipse.cdt.core.dom.ast.IASTPreprocessorStatement;
@@ -17,6 +16,7 @@ public class IncorrectIncludeChecker extends AbstractIndexAstChecker {
 	public static final String ER_ID = "org.eclipse.cdt.codan.internal.checkers.IncorrectIncludeChecker"; //$NON-NLS-1$
 	
 	private Map<String, IncludeGraphEntry> includeStructure = new HashMap<String, IncludeGraphEntry>();
+	IncludeGraphEntry root;
 	
 	class IncludeGraphEntry {
 		
@@ -28,13 +28,17 @@ public class IncorrectIncludeChecker extends AbstractIndexAstChecker {
 			referencedIncludes = new ArrayList<IncludeGraphEntry>();
 		}
 		
-		public void addReferencedIncludes() {
-			//TODO
+		public void addReferencedInclude(IncludeGraphEntry entry) {
+			referencedIncludes.add(entry);
 		}
-	}
-	
-	public List<IncludeGraphEntry> getGraphEntries(IASTPreprocessorStatement[] statements) {
-		//TODO
+		
+		public String toString() {
+			String result = "Entry: " + name + " " + "\r\n";;
+			for(IncludeGraphEntry entry: referencedIncludes) {
+				result += entry.toString();
+			}
+			return result;
+		}
 	}
 	
 	class IncludeASTVisitor extends ASTVisitor {
@@ -52,19 +56,40 @@ public class IncorrectIncludeChecker extends AbstractIndexAstChecker {
 			IncludeGraphEntry entry = new IncludeGraphEntry(tu.getContainingFilename());
 			includeStructure.put(tu.getContainingFilename(), entry);
 			
+			if(root == null) {
+				root = entry;
+			}
+			
 			//Add all entries referenced from this entry
 			for(IASTPreprocessorStatement statement: tu.getAllPreprocessorStatements()) {
 				if(!(statement instanceof IASTPreprocessorIncludeStatement)) {
+					System.out.println("Not instanceof");
 					continue;
 				}
 				
-				String path = ((IASTPreprocessorIncludeStatement) statement).getPath();
+				IASTPreprocessorIncludeStatement include = (IASTPreprocessorIncludeStatement) statement;
+				
+				if(!include.isResolved()) {
+					System.out.println("Not resolved!" + include.getRawSignature());
+					//TODO: handle this issue
+					continue;
+				}
+				String path = include.getPath();
 				if(path == null) {
+					System.out.println("Null path!" + include.getRawSignature());
 					continue;
 				}
 				
-				//TODO: add statement to containing IncludeGraphEntry
-				//TODO: add statement to includeStructure
+				IncludeGraphEntry refEntry;
+				if(includeStructure.containsKey(path)) {
+					refEntry = includeStructure.get(path);
+				}
+				else {
+					refEntry = new IncludeGraphEntry(path);
+					includeStructure.put(path, refEntry);
+				}
+				
+				entry.addReferencedInclude(refEntry);
 			}
 			
 			return PROCESS_CONTINUE;
@@ -83,7 +108,6 @@ public class IncorrectIncludeChecker extends AbstractIndexAstChecker {
 		 */
 		
 		ast.accept(new IncludeASTVisitor(includeStructure));
-		System.out.println(ast.getContainingFilename());
-		//ast.getAllPreprocessorStatements()
+		System.out.println(root);
 	}
 }
