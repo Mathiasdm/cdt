@@ -1,5 +1,7 @@
 package org.eclipse.cdt.codan.core.internal.checkers;
 
+import java.io.File;
+
 import org.eclipse.cdt.codan.core.test.CheckerTestCase;
 import org.eclipse.cdt.codan.internal.checkers.IncorrectIncludeChecker;
 public class IncorrectIncludeCheckerTest extends CheckerTestCase {
@@ -20,7 +22,11 @@ public class IncorrectIncludeCheckerTest extends CheckerTestCase {
 	//   printf("Hello world!");
 	// }
 	public void testNotNeededInclude() {
-		loadCodeAndRun(getAboveComment());
-		checkErrorLine(6);
+		StringBuilder[] code = getContents(2);
+		File f1 = loadcode(code[0].toString());
+		File f2 = loadcode(code[1].toString());
+		runOnProject();
+		checkErrorLine(f2, 1);
+		checkErrorLine(f2, 2);
 	}
 }
