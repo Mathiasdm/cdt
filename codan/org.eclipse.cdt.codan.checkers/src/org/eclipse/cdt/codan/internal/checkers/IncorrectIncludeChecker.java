@@ -10,6 +10,12 @@ import org.eclipse.cdt.core.dom.ast.ASTVisitor;
 import org.eclipse.cdt.core.dom.ast.IASTPreprocessorIncludeStatement;
 import org.eclipse.cdt.core.dom.ast.IASTPreprocessorStatement;
 import org.eclipse.cdt.core.dom.ast.IASTTranslationUnit;
+import org.eclipse.cdt.core.index.IIndex;
+import org.eclipse.cdt.core.index.IIndexFile;
+import org.eclipse.cdt.core.model.CModelException;
+import org.eclipse.cdt.core.model.ICProject;
+import org.eclipse.cdt.core.model.IIncludeReference;
+import org.eclipse.core.runtime.CoreException;
 
 public class IncorrectIncludeChecker extends AbstractIndexAstChecker {
 	
@@ -33,9 +39,9 @@ public class IncorrectIncludeChecker extends AbstractIndexAstChecker {
 		}
 		
 		public String toString() {
-			String result = "Entry: " + name + " " + "\r\n";;
+			String result = "Entry: " + name + " " + "\r\n";
 			for(IncludeGraphEntry entry: referencedIncludes) {
-				result += entry.toString();
+				result += "-" + entry.name + " " + "\r\n";
 			}
 			return result;
 		}
@@ -56,10 +62,6 @@ public class IncorrectIncludeChecker extends AbstractIndexAstChecker {
 			IncludeGraphEntry entry = new IncludeGraphEntry(tu.getContainingFilename());
 			includeStructure.put(tu.getContainingFilename(), entry);
 			
-			if(root == null) {
-				root = entry;
-			}
-			
 			//Add all entries referenced from this entry
 			for(IASTPreprocessorStatement statement: tu.getAllPreprocessorStatements()) {
 				if(!(statement instanceof IASTPreprocessorIncludeStatement)) {
@@ -68,6 +70,17 @@ public class IncorrectIncludeChecker extends AbstractIndexAstChecker {
 				}
 				
 				IASTPreprocessorIncludeStatement include = (IASTPreprocessorIncludeStatement) statement;
+				
+				IIndexFile indexfile = include.getImportedIndexFile();
+				System.out.println("importedindexfile: " + indexfile);
+				if(indexfile != null) {
+					try {
+						System.out.println("Path: " + indexfile.getLocation().getFullPath());
+					} catch (CoreException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
+				}
 				
 				if(!include.isResolved()) {
 					System.out.println("Not resolved!" + include.getRawSignature());
@@ -106,8 +119,113 @@ public class IncorrectIncludeChecker extends AbstractIndexAstChecker {
 		 *     * Files directly included but _not_ used
 		 *     * Files used but _not_ directly included
 		 */
+//		IDependencyTree tree = ast.getDependencyTree();
+//		try {
+//			for(IIndexFile file: ast.getIndex().getAllFiles()) {
+//				System.out.println(file.getLocation().getFullPath());
+//				for(IIndexInclude file2: ast.getIndex().findIncludedBy(file)) {
+//					System.out.println("--" + file2.getFullName());
+//				}
+//			}
+//		} catch (CoreException e) {
+//			// TODO Auto-generated catch block
+//			e.printStackTrace();
+//		}
+//		System.out.println("tree: " + tree);
+//		for(IASTInclusionNode node: tree.getInclusions()) {
+//			System.out.println(node.getIncludeDirective().getRawSignature());
+//		}
+		//isHeaderUnit
+		//ast.getIndex().findIncludes(file);
+		//ast.accept(new IncludeASTVisitor(includeStructure));
 		
-		ast.accept(new IncludeASTVisitor(includeStructure));
-		System.out.println(root);
+		
+		
+		
+//		IASTPreprocessorIncludeStatement[] includes = ast.getIncludeDirectives();
+//		for(IASTPreprocessorIncludeStatement include: includes) {
+//			System.out.println(include.getRawSignature());
+//			if(include.getImportedIndexFile() != null) {
+//				try {
+//					System.out.println(include.getImportedIndexFile().getLocation().getURI().toString());
+//				} catch (CoreException e) {
+//					// TODO Auto-generated catch block
+//					e.printStackTrace();
+//				}
+//			}
+//			else {
+//				System.out.println("indexfile is null :(");
+//			}
+//		}
+		
+		
+		
+		
+		//Hyperlinktest!
+//		IWorkingCopyManager manager = CUIPlugin.getDefault().getWorkingCopyManager();
+//		IWorkingCopy workingCopy = manager.getWorkingCopy(editor.getEditorInput());
+//		IStatus status= ASTProvider.getASTProvider().runOnAST(workingCopy, ASTProvider.WAIT_IF_OPEN, null, new ASTRunnable() {
+//			public IStatus runOnAST(ILanguage lang, IASTTranslationUnit ast) {
+//				return Status.OK_STATUS;
+//			}
+//		});
+		
+		
+		
+		IIndex index = ast.getIndex();
+		IASTPreprocessorIncludeStatement[] includes = ast.getIncludeDirectives();
+		for(IASTPreprocessorIncludeStatement include: includes) {
+			System.out.println(include.getRawSignature());
+			//ast.getIndex().resolveInclude(include);
+		}
+		//ProjectIndexerIncludeResolutionHeuristics
+		//((TranslationUnit)ast.getOriginatingTranslationUnit()).
+		ICProject cprj = ast.getOriginatingTranslationUnit().getCProject();
+		try {
+			for(IIncludeReference ref: cprj.getIncludeReferences()) {
+				System.out.println(ref.getAffectedPath().toString());
+				//index.findBinding(IName)
+			}
+		} catch (CModelException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		//ProjectIndexerInputAdapter pathResolver = new ProjectIndexerInputAdapter(cprj);
+		//ProjectIndexerIncludeResolutionHeuristics heuristics = new ProjectIndexerIncludeResolutionHeuristics(cprj.getProject(), pathResolver);
+		
+		
+		
+		//Poging: via index.getBindings zoeken!
+//		ast.accept(new ASTVisitor() {
+//			{
+//				shouldVisitNames = true;
+//				shouldVisitDeclarations = true;
+//				shouldVisitInitializers = true;
+//				shouldVisitParameterDeclarations = true;
+//				shouldVisitDeclarators = true;
+//				shouldVisitDeclSpecifiers = true;
+//				shouldVisitArrayModifiers = true;
+//				shouldVisitPointerOperators = true;
+//				shouldVisitExpressions = true;
+//				shouldVisitStatements = true;
+//				shouldVisitTypeIds = true;
+//				shouldVisitEnumerators = true;
+//				shouldVisitTranslationUnit = true;
+//				shouldVisitProblems = true;
+//				shouldVisitDesignators = true;
+//				shouldVisitBaseSpecifiers = true;
+//				shouldVisitNamespaces = true;
+//				shouldVisitTemplateParameters = true;
+//				shouldVisitCaptures= true;
+//				includeInactiveNodes= true;
+//				shouldVisitAmbiguousNodes = true;
+//				shouldVisitImplicitNames = true;
+//				shouldVisitImplicitNameAlternates = true;
+//			}
+//		});
+		
+		if(includeStructure.containsKey(ast.getContainingFilename())) {
+			//System.out.println(includeStructure.get(ast.getContainingFilename()).toString());
+		}
 	}
 }
