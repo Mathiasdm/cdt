@@ -398,5 +398,18 @@
             name="%problem.name.ClassMembersInitialization">
          </problem>
       </checker>
+            <checker
+            class="org.eclipse.cdt.codan.internal.checkers.DeadCodeChecker"
+            id="org.eclipse.cdt.codan.internal.checkers.DeadCodeChecker"
+            name="%checker.name.DeadCodeChecker">
+         <problem
+               defaultSeverity="Warning"
+               description="%problem.description.DeadCodeChecker"
+               id="org.eclipse.cdt.codan.internal.checkers.DeadCodeChecker"
+               markerType="org.eclipse.cdt.codan.core.codanProblem"
+               messagePattern="%problem.messagePattern.DeadCodeChecker"
+               name="%problem.name.DeadCodeChecker">
+         </problem>
+      </checker>
    </extension>
 </plugin>
