@@ -16,6 +16,8 @@ import java.util.Iterator;
 import org.eclipse.cdt.codan.core.cxx.internal.model.cfg.ControlFlowGraphBuilder;
 import org.eclipse.cdt.codan.core.cxx.internal.model.cfg.CxxControlFlowGraph;
 import org.eclipse.cdt.codan.core.cxx.model.AbstractAstFunctionChecker;
+import org.eclipse.cdt.codan.core.model.CheckerLaunchMode;
+import org.eclipse.cdt.codan.core.model.IProblemWorkingCopy;
 import org.eclipse.cdt.codan.core.model.cfg.IBasicBlock;
 import org.eclipse.cdt.codan.core.model.cfg.ICfgData;
 import org.eclipse.cdt.core.dom.ast.IASTFunctionDefinition;
@@ -26,6 +28,14 @@ public class DeadCodeChecker extends AbstractAstFunctionChecker {
 	
 	public static final String ER_ID = "org.eclipse.cdt.codan.internal.checkers.DeadCodeChecker"; //$NON-NLS-1$
 	public static final String PROBLEM_ID = "org.eclipse.cdt.codan.internal.checkers.DeadCodeChecker"; //$NON-NLS-1$
+	
+	@Override
+	public void initPreferences(IProblemWorkingCopy problem) {
+		super.initPreferences(problem);
+		// These checkers should not run on full or incremental build.
+		getLaunchModePreference(problem).enableInLaunchModes(CheckerLaunchMode.RUN_AS_YOU_TYPE,
+				CheckerLaunchMode.RUN_ON_DEMAND);
+	}
 	
 	@SuppressWarnings("restriction")
 	@Override
