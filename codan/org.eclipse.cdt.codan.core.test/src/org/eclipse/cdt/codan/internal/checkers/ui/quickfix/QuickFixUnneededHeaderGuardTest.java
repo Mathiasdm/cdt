@@ -27,12 +27,6 @@ public class QuickFixUnneededHeaderGuardTest extends QuickFixTestCase {
 		return new QuickFixUnneededHeaderGuard();
 	}
 
-	// @file:includedheader.h
-	// #ifndef ABC_H
-	// #define ABC_H
-	// int foo();
-	// #endif
-	/* ---- */
 	// @file:header.h
 	// #ifndef ABC_H
 	// #include "includedheader.h" //Warning
@@ -41,85 +35,33 @@ public class QuickFixUnneededHeaderGuardTest extends QuickFixTestCase {
 	@SuppressWarnings({ "restriction", "nls" })
 	public void testSimple() {
 		setQuickFix(new QuickFixUnneededHeaderGuard());
-		StringBuilder[] code = getContents(2);
+		StringBuilder[] code = getContents(1);
 		File f1 = loadcode(code[0].toString());
-		File f2 = loadcode(code[1].toString());
 
 		runCodan();
 		doRunQuickFix();
-
-		String result1 = getContents(f1);
-		assertContainedIn("#ifndef", result1);
-		assertContainedIn("#endif", result1);
-		String result2 = getContents(f2);
-		assertFalse(result2.contains("#ifndef"));
-		assertFalse(result2.contains("#endif"));
+		String result = getContents(f1);
+		assertFalse(result.contains("#ifndef"));
+		assertFalse(result.contains("#endif"));
 	}
 
-	//@file:included.h
-	//#ifndef BLAH_H
-	//#define BLAH_H
-	//int foo();
-	//#endif
-	/* ---- */
-	//@file:includer.h
-	//#ifndef BLAH_H
-	//#include "included.h"
-	//#endif
-	/* ---- */
-	//@file:a.h
-	//#ifndef A_H
-	//#define A_H
-	//int bar();
-	//#endif
-	/* ---- */
-	//@file:a.c
-	//#include "a.h"
-	// int bar() {}
-	/* ---- */
-	//@file:b.h
-	//#ifndef B_H
-	//#define B_H
-	//#include "included.h"
-	//#include "a.h"
-	//int the_function();
-	//#endif B_H
-	@SuppressWarnings({ "restriction" })
-	public void testMultipleFiles() {
+	// @file:somewhere.cpp
+	// #ifndef INCLUDE_H
+	// #include "include.h"
+	// int foo();
+	// #endif
+	@SuppressWarnings({ "restriction", "nls" })
+	public void testFalsePositive() {
 		setQuickFix(new QuickFixUnneededHeaderGuard());
-		StringBuilder[] code = getContents(5);
-		File[] files = loadcode(code);
+		StringBuilder[] code = getContents(1);
+		File f1 = loadcode(code[0].toString());
 
 		runCodan();
 		doRunQuickFix();
-
-		String[] contents = getContents(files);
-		assertTrue(hasGuards(contents[0]));
-		assertFalse(hasGuards(contents[1]));
-	}
-
-	@SuppressWarnings("nls")
-	private boolean hasGuards(String s) {
-		if(s.contains("#ifndef") && s.contains("#endif")) {
-			return true;
-		}
-		return false;
-	}
-
-	private String[] getContents(File[] files) {
-		String[] contents = new String[files.length];
-		for(int i=0; i<files.length; i++) {
-			contents[i] = getContents(files[i]);
-		}
-		return contents;
-	}
-
-	private File[] loadcode(StringBuilder[] code) {
-		File[] files = new File[code.length];
-		for(int i=0; i<code.length; i++) {
-			files[i] = loadcode(code[i].toString());
-		}
-		return files;
+		String result = getContents(f1);
+		assertNotNull(result);
+		assertTrue(result.contains("#ifndef"));
+		assertTrue(result.contains("#endif"));
 	}
 
 	private String getContents(File f1) {
