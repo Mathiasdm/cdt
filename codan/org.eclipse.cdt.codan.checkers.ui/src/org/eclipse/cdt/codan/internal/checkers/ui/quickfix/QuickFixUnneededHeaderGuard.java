@@ -11,8 +11,10 @@
 
 package org.eclipse.cdt.codan.internal.checkers.ui.quickfix;
 
+import org.eclipse.cdt.codan.internal.checkers.UnneededHeaderGuard;
 import org.eclipse.cdt.codan.internal.checkers.ui.CheckersUiActivator;
 import org.eclipse.cdt.codan.internal.checkers.ui.Messages;
+import org.eclipse.cdt.codan.internal.core.model.CodanProblemMarker;
 import org.eclipse.cdt.codan.ui.AbstractAstRewriteQuickFix;
 import org.eclipse.cdt.core.dom.ast.IASTFileLocation;
 import org.eclipse.cdt.core.dom.ast.IASTPreprocessorStatement;
@@ -32,6 +34,9 @@ public class QuickFixUnneededHeaderGuard extends AbstractAstRewriteQuickFix {
 
 	@Override
 	public void modifyAST(IIndex index, IMarker marker) {
+		if(!isApplicable(marker)) {
+			return;
+		}
 		String markerFile = marker.getResource().getLocation().toString();
 		int markerPos = 0;
 		try {
@@ -104,5 +109,18 @@ public class QuickFixUnneededHeaderGuard extends AbstractAstRewriteQuickFix {
 			CheckersUiActivator.log(e);
 			return;
 		}
+	}
+	
+	/**
+	 * This quickfix is only applicable for Codan problems related to external header guards.
+	 */
+	@Override
+	public boolean isApplicable(IMarker marker) {
+		if (isCodanProblem()) {
+			@SuppressWarnings("restriction")
+			String problemId = CodanProblemMarker.getProblemId(marker);
+			return problemId.equals(UnneededHeaderGuard.ER_ID);
+		}
+		return false;
 	}
 }
