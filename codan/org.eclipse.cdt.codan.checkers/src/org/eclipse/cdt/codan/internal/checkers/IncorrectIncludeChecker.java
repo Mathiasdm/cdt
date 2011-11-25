@@ -11,10 +11,8 @@ import org.eclipse.cdt.core.dom.ast.IASTPreprocessorIncludeStatement;
 import org.eclipse.cdt.core.dom.ast.IASTPreprocessorStatement;
 import org.eclipse.cdt.core.dom.ast.IASTTranslationUnit;
 import org.eclipse.cdt.core.index.IIndex;
+import org.eclipse.cdt.core.index.IIndexBinding;
 import org.eclipse.cdt.core.index.IIndexFile;
-import org.eclipse.cdt.core.model.CModelException;
-import org.eclipse.cdt.core.model.ICProject;
-import org.eclipse.cdt.core.model.IIncludeReference;
 import org.eclipse.core.runtime.CoreException;
 
 public class IncorrectIncludeChecker extends AbstractIndexAstChecker {
@@ -172,24 +170,24 @@ public class IncorrectIncludeChecker extends AbstractIndexAstChecker {
 		
 		
 		
-		IIndex index = ast.getIndex();
-		IASTPreprocessorIncludeStatement[] includes = ast.getIncludeDirectives();
-		for(IASTPreprocessorIncludeStatement include: includes) {
-			System.out.println(include.getRawSignature());
-			//ast.getIndex().resolveInclude(include);
-		}
-		//ProjectIndexerIncludeResolutionHeuristics
-		//((TranslationUnit)ast.getOriginatingTranslationUnit()).
-		ICProject cprj = ast.getOriginatingTranslationUnit().getCProject();
-		try {
-			for(IIncludeReference ref: cprj.getIncludeReferences()) {
-				System.out.println(ref.getAffectedPath().toString());
-				//index.findBinding(IName)
-			}
-		} catch (CModelException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
+//		IIndex index = ast.getIndex();
+//		IASTPreprocessorIncludeStatement[] includes = ast.getIncludeDirectives();
+//		for(IASTPreprocessorIncludeStatement include: includes) {
+//			System.out.println(include.getRawSignature());
+//			//ast.getIndex().resolveInclude(include);
+//		}
+//		//ProjectIndexerIncludeResolutionHeuristics
+//		//((TranslationUnit)ast.getOriginatingTranslationUnit()).
+//		ICProject cprj = ast.getOriginatingTranslationUnit().getCProject();
+//		try {
+//			for(IIncludeReference ref: cprj.getIncludeReferences()) {
+//				System.out.println(ref.getAffectedPath().toString());
+//				//index.findBinding(IName)
+//			}
+//		} catch (CModelException e) {
+//			// TODO Auto-generated catch block
+//			e.printStackTrace();
+//		}
 		//ProjectIndexerInputAdapter pathResolver = new ProjectIndexerInputAdapter(cprj);
 		//ProjectIndexerIncludeResolutionHeuristics heuristics = new ProjectIndexerIncludeResolutionHeuristics(cprj.getProject(), pathResolver);
 		
@@ -224,8 +222,30 @@ public class IncorrectIncludeChecker extends AbstractIndexAstChecker {
 //			}
 //		});
 		
-		if(includeStructure.containsKey(ast.getContainingFilename())) {
-			//System.out.println(includeStructure.get(ast.getContainingFilename()).toString());
+//		if(includeStructure.containsKey(ast.getContainingFilename())) {
+//			//System.out.println(includeStructure.get(ast.getContainingFilename()).toString());
+//		}
+		IIndex index = ast.getIndex();
+		IASTPreprocessorStatement[] statements = ast.getAllPreprocessorStatements();
+		for(IASTPreprocessorStatement statement: statements) {
+			if(statement instanceof IASTPreprocessorIncludeStatement) {
+				IASTPreprocessorIncludeStatement include = (IASTPreprocessorIncludeStatement) statement;
+				System.out.println("include statement info:");
+				System.out.println("-----------------------");
+				System.out.println(include.getImportedIndexFile());
+				System.out.println(include.createsAST());
+				System.out.println(include.getName());
+				try {
+					IIndexBinding binding = index.findBinding(include.getName());
+					if(binding != null) {
+						System.out.println("Binding: " + binding.getQualifiedName());
+					}
+				} catch (CoreException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+				System.out.println("--- end of include statement info");
+			}
 		}
 	}
 }
