@@ -10,9 +10,11 @@ import org.eclipse.cdt.core.dom.ast.ASTVisitor;
 import org.eclipse.cdt.core.dom.ast.IASTPreprocessorIncludeStatement;
 import org.eclipse.cdt.core.dom.ast.IASTPreprocessorStatement;
 import org.eclipse.cdt.core.dom.ast.IASTTranslationUnit;
+import org.eclipse.cdt.core.dom.ast.IBinding;
 import org.eclipse.cdt.core.index.IIndex;
 import org.eclipse.cdt.core.index.IIndexBinding;
 import org.eclipse.cdt.core.index.IIndexFile;
+import org.eclipse.cdt.core.index.IIndexFileSet;
 import org.eclipse.core.runtime.CoreException;
 
 public class IncorrectIncludeChecker extends AbstractIndexAstChecker {
@@ -226,6 +228,15 @@ public class IncorrectIncludeChecker extends AbstractIndexAstChecker {
 //			//System.out.println(includeStructure.get(ast.getContainingFilename()).toString());
 //		}
 		IIndex index = ast.getIndex();
+		IIndexFileSet set = ast.getASTFileSet();
+		try {
+			for(IIndexFile file: index.getAllFiles()) {
+				System.out.println(file.getLocation().getFullPath());
+			}
+		} catch (CoreException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		}
 		IASTPreprocessorStatement[] statements = ast.getAllPreprocessorStatements();
 		for(IASTPreprocessorStatement statement: statements) {
 			if(statement instanceof IASTPreprocessorIncludeStatement) {
@@ -235,10 +246,21 @@ public class IncorrectIncludeChecker extends AbstractIndexAstChecker {
 				System.out.println(include.getImportedIndexFile());
 				System.out.println(include.createsAST());
 				System.out.println(include.getName());
+				IBinding resolvedBinding = include.getName().resolveBinding();
+				System.out.println(resolvedBinding);
+				if(resolvedBinding != null) {
+					System.out.println(resolvedBinding.getName());
+				}
+				else {
+					System.out.println("Resolved binding is null!");
+				}
 				try {
 					IIndexBinding binding = index.findBinding(include.getName());
 					if(binding != null) {
 						System.out.println("Binding: " + binding.getQualifiedName());
+					}
+					else {
+						System.out.println("Binding is null!");
 					}
 				} catch (CoreException e) {
 					// TODO Auto-generated catch block
@@ -247,5 +269,6 @@ public class IncorrectIncludeChecker extends AbstractIndexAstChecker {
 				System.out.println("--- end of include statement info");
 			}
 		}
+		//TODO: AddIncludeOnSelectionAction!!!
 	}
 }
