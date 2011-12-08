@@ -51,21 +51,7 @@ public class UnneededHeaderGuard extends AbstractIndexAstChecker {
 		ArrayList<IASTPreprocessorStatement> preprocessorStatements =
 				new ArrayList<IASTPreprocessorStatement>(
 						Arrays.asList(ast.getAllPreprocessorStatements()));
-		PreprocessorHandler handler = new PreprocessorHandler(preprocessorStatements);
-		NodePreprocessorMap map = new NodePreprocessorMap();
-		
-		ASTPreprocessorVisitor visitor = new ASTPreprocessorVisitor(map, handler);
-		//Visit AST to add preprocessor statements to map
-		ast.accept(visitor);
-		
-		//Determine candidate issues
-		List<CandidateIssue> candidateIssues = new ArrayList<CandidateIssue>();
-		for(IASTNode key: map.getMap().keySet()) { //Append issues related to nodes
-			ArrayList<IASTPreprocessorStatement> statements = map.getMap().get(key);
-			List<CandidateIssue> candidateIssuesForNode = getCandidateIssues(statements);
-			candidateIssues.addAll(candidateIssuesForNode);
-		}
-		candidateIssues.addAll(getCandidateIssues(handler.getList())); //Append issues that are not before any node
+		List<CandidateIssue> candidateIssues = getCandidateIssues(preprocessorStatements);
 		
 		//Check if the candidate issues are actual issues
 		for(CandidateIssue candidate: candidateIssues) {
