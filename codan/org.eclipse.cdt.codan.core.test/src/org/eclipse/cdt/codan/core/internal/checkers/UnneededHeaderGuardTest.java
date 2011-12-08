@@ -12,7 +12,6 @@
 package org.eclipse.cdt.codan.core.internal.checkers;
 import org.eclipse.cdt.codan.core.test.CheckerTestCase;
 
-@SuppressWarnings("unused")
 public class UnneededHeaderGuardTest extends CheckerTestCase {
 
 	@Override

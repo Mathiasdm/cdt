@@ -11,7 +11,10 @@
 
 package org.eclipse.cdt.codan.internal.checkers.ui.quickfix;
 
+import java.io.IOException;
+
 import org.eclipse.cdt.codan.ui.AbstractCodanCMarkerResolution;
+import org.eclipse.core.runtime.CoreException;
 
 public class QuickFixUnneededHeaderGuardTest extends QuickFixTestCase {
 	@Override
@@ -27,25 +30,11 @@ public class QuickFixUnneededHeaderGuardTest extends QuickFixTestCase {
 	// #endif
 	// int blah();
 	@SuppressWarnings({ "restriction", "nls" })
-	public void testSimple() {
+	public void testSimple() throws IOException, CoreException {
 		setQuickFix(new QuickFixUnneededHeaderGuard());
 		loadcode(getAboveComment());
 		String result = runQuickFixOneFile();
 		assertFalse(result.contains("#ifndef"));
 		assertFalse(result.contains("#endif"));
-	}
-
-	// @file:somewhere.cpp
-	// #ifndef INCLUDE_H
-	// #include "include.h"
-	// int foo();
-	// #endif
-	@SuppressWarnings({ "restriction", "nls" })
-	public void testFalsePositive() {
-		setQuickFix(new QuickFixUnneededHeaderGuard());
-		loadcode(getAboveComment());
-		String result = runQuickFixOneFile();
-		assertTrue(result.contains("#ifndef"));
-		assertTrue(result.contains("#endif"));
 	}
 }
