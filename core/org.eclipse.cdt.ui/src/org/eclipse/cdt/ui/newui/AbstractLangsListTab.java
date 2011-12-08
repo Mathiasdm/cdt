@@ -35,7 +35,6 @@ import org.eclipse.swt.events.SelectionAdapter;
 import org.eclipse.swt.events.SelectionEvent;
 import org.eclipse.swt.graphics.Font;
 import org.eclipse.swt.graphics.Image;
-import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.Button;
@@ -119,6 +118,7 @@ public abstract class AbstractLangsListTab extends AbstractCPropertyTab {
 		};
 
 	private static final Comparator<Object> comp = CDTListComparator.getInstance();
+	private static String selectedLanguage;
 
 	private final static Image IMG_FOLDER = CDTSharedImages.getImage(CDTSharedImages.IMG_OBJS_FOLDER);
 	private final static Image IMG_INCLUDES_FOLDER = CDTSharedImages.getImage(CDTSharedImages.IMG_OBJS_INCLUDES_FOLDER);
@@ -159,6 +159,7 @@ public abstract class AbstractLangsListTab extends AbstractCPropertyTab {
 		sashForm.setWeights(DEFAULT_SASH_WEIGHTS);
 
 		sashForm.addListener(SWT.Selection, new Listener() {
+			@Override
 			public void handleEvent(Event event) {
 				if (event.detail == SWT.DRAG)
 					return;
@@ -175,10 +176,13 @@ public abstract class AbstractLangsListTab extends AbstractCPropertyTab {
 		tv = new TableViewer(table);
 
 		tv.setContentProvider(new IStructuredContentProvider() {
+			@Override
 			public Object[] getElements(Object inputElement) {
 				return (Object[])inputElement;
 			}
+			@Override
 			public void dispose() {}
+			@Override
 			public void inputChanged(Viewer viewer, Object oldInput, Object newInput) {}
 		});
 
@@ -198,9 +202,11 @@ public abstract class AbstractLangsListTab extends AbstractCPropertyTab {
 		});
 
 		table.addControlListener(new ControlListener() {
+			@Override
 			public void controlMoved(ControlEvent e) {
 				setColumnToFit();
 			}
+			@Override
 			public void controlResized(ControlEvent e) {
 				setColumnToFit();
 			}});
@@ -216,6 +222,7 @@ public abstract class AbstractLangsListTab extends AbstractCPropertyTab {
 
 		stringListModeControl = new StringListModeControl(page, usercomp, 1);
 		stringListModeControl.addListener(SWT.Selection, new Listener() {
+			@Override
 			public void handleEvent(Event event) {
 				update();
 			}
@@ -291,12 +298,14 @@ public abstract class AbstractLangsListTab extends AbstractCPropertyTab {
 					ICLanguageSetting langSetting = (ICLanguageSetting) items[0].getData();
 					if (langSetting != null) {
 						lang = langSetting;
+						selectedLanguage = getLanguageName(lang);
 						update();
 					}
 				}
 			}
 		});
 		langTree.addPaintListener(new PaintListener() {
+			@Override
 			public void paintControl(PaintEvent e) {
 				int x = langTree.getBounds().width - 5;
 				if (langCol.getWidth() != x)
@@ -372,38 +381,45 @@ public abstract class AbstractLangsListTab extends AbstractCPropertyTab {
 		if (rcDes == null || !canBeVisible()) return;
 		updateExport();
 		langTree.removeAll();
-		TreeItem firstItem = null;
+		TreeItem selectedItem = null;
 		ls = getLangSetting(rcDes);
 		if (ls != null) {
 			Arrays.sort(ls, CDTListComparator.getInstance());
 			for (ICLanguageSetting langSetting : ls) {
 				if ((langSetting.getSupportedEntryKinds() & getKind()) != 0) {
 					TreeItem t = new TreeItem(langTree, SWT.NONE);
-					String langId = langSetting.getLanguageId();
-					if (langId != null && !langId.equals(EMPTY_STR)) {
-						// Bug #178033: get language name via LangManager.
-						ILanguageDescriptor langDes = LanguageManager.getInstance().getLanguageDescriptor(langId);
-						if (langDes == null)
-							langId = null;
-						else
-							langId = langDes.getName();
-					}
-					if (langId == null || langId.equals(EMPTY_STR))
-						langId = langSetting.getName();
+					String langId = getLanguageName(langSetting);
 					t.setText(0, langId);
 					t.setData(langSetting);
-					if (firstItem == null) {
-						firstItem = t;
+					if (selectedItem == null
+							|| (selectedLanguage != null && selectedLanguage.equals(langId))) {
+						selectedItem = t;
 						lang = langSetting;
 					}
 				}
 			}
 
-			if (firstItem != null && table != null) {
-				langTree.setSelection(firstItem);
+			if (selectedItem != null && table != null) {
+				langTree.setSelection(selectedItem);
 			}
 		}
 		update();
+	}
+
+	private String getLanguageName(ICLanguageSetting langSetting) {
+		String langId = langSetting.getLanguageId();
+		String langName = null;
+		if (langId != null && langId.length() != 0) {
+			// Bug #178033: get language name via LangManager.
+			ILanguageDescriptor langDes = LanguageManager.getInstance().getLanguageDescriptor(langId);
+			if (langDes != null)
+				langName = langDes.getName();
+		}
+		if (langName == null || langName.length() == 0)
+			langName = langSetting.getName();
+		if (langName == null || langName.length() == 0)
+			langName = langId;
+		return langName;
 	}
 
 	private void updateExport() {
@@ -688,6 +704,7 @@ public abstract class AbstractLangsListTab extends AbstractCPropertyTab {
 		public Image getImage(Object element) {
 			return getColumnImage(element, 0);
 		}
+		@Override
 		public Image getColumnImage(Object element, int columnIndex) {
 			if (columnIndex > 0) return null;
 			if (! (element instanceof ICLanguageSettingEntry)) return null;
@@ -715,6 +732,7 @@ public abstract class AbstractLangsListTab extends AbstractCPropertyTab {
 		public String getText(Object element) {
 			return getColumnText(element, 0);
 		}
+		@Override
 		public String getColumnText(Object element, int columnIndex) {
 			if (! (element instanceof ICLanguageSettingEntry)) {
 				return (columnIndex == 0) ? element.toString() : EMPTY_STR;
@@ -734,6 +752,7 @@ public abstract class AbstractLangsListTab extends AbstractCPropertyTab {
 			return EMPTY_STR;
 		}
 
+		@Override
 		public Font getFont(Object element) {
 			if (! (element instanceof ICLanguageSettingEntry)) return null;
 			ICLanguageSettingEntry le = (ICLanguageSettingEntry) element;

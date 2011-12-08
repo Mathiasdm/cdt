@@ -35,6 +35,7 @@ import org.eclipse.cdt.core.testplugin.CProjectHelper;
 import org.eclipse.cdt.core.testplugin.CTestPlugin;
 import org.eclipse.cdt.core.testplugin.util.BaseTestCase;
 import org.eclipse.cdt.core.testplugin.util.TestSourceReader;
+import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IProjectDescription;
 import org.eclipse.core.runtime.CoreException;
@@ -53,6 +54,7 @@ public class IndexCompositeTests  extends BaseTestCase {
 	private static final int NONE = 0, REFS = IIndexManager.ADD_DEPENDENCIES;
 	private static final int REFD = IIndexManager.ADD_DEPENDENT, BOTH = REFS | REFD;
 	private static final IndexFilter FILTER= new IndexFilter() {
+		@Override
 		public boolean acceptBinding(IBinding binding) throws CoreException {
 			if (binding instanceof ICPPMethod) {
 				return !((ICPPMethod) binding).isImplicit();
@@ -419,6 +421,7 @@ public class IndexCompositeTests  extends BaseTestCase {
 		index.acquireReadLock();
 	}
 	
+	@Override
 	protected void tearDown() throws Exception {
 		if (index != null) {
 			index.releaseReadLock();
@@ -451,14 +454,15 @@ class ProjectBuilder {
 		return this;
 	}
 
-	ICProject create() throws CoreException {
+	ICProject create() throws Exception {
 		ICProject result = cpp ?
 				CProjectHelper.createCCProject(name, "bin", IPDOMManager.ID_NO_INDEXER) :
 				CProjectHelper.createCCProject(name, "bin", IPDOMManager.ID_NO_INDEXER);
 
+		IFile lastFile= null;
 		for (Iterator i = path2content.entrySet().iterator(); i.hasNext();) {
 			Map.Entry entry = (Map.Entry) i.next();
-			TestSourceReader.createFile(result.getProject(), new Path((String)entry.getKey()), (String) entry.getValue());
+			lastFile= TestSourceReader.createFile(result.getProject(), new Path((String)entry.getKey()), (String) entry.getValue());
 		}
 
 		IProjectDescription desc = result.getProject().getDescription();
@@ -466,7 +470,11 @@ class ProjectBuilder {
 		result.getProject().setDescription(desc, new NullProgressMonitor());
 
 		CCorePlugin.getIndexManager().setIndexerId(result, IPDOMManager.ID_FAST_INDEXER);
-		CCorePlugin.getIndexManager().joinIndexer(4000, new NullProgressMonitor());
+		if (lastFile != null) {
+			IIndex index= CCorePlugin.getIndexManager().getIndex(result);
+			TestSourceReader.waitUntilFileIsIndexed(index, lastFile, 2000);
+		} 
+		BaseTestCase.waitForIndexer(result);
 		return result;
 	}
 }

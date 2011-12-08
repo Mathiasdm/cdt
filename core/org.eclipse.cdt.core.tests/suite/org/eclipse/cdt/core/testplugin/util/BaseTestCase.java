@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2006, 2010 Wind River Systems, Inc. and others.
+ * Copyright (c) 2006, 2011 Wind River Systems, Inc. and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -57,7 +57,7 @@ public class BaseTestCase extends TestCase {
 		super(name);
 	}
 
-	public NullProgressMonitor npm() {
+	public static NullProgressMonitor npm() {
 		return new NullProgressMonitor();
 	}
 
@@ -130,6 +130,7 @@ public class BaseTestCase extends TestCase {
 	public void runBare() throws Throwable {
 		final List<IStatus> statusLog= Collections.synchronizedList(new ArrayList());
 		ILogListener logListener= new ILogListener() {
+			@Override
 			public void logging(IStatus status, String plugin) {
 				if (!status.isOK() && status.getSeverity() != IStatus.INFO) {
 					switch (status.getCode()) {
@@ -159,7 +160,7 @@ public class BaseTestCase extends TestCase {
 			
 			if (statusLog.size() != fExpectedLoggedNonOK) {
 				StringBuffer msg= new StringBuffer("Expected number (" + fExpectedLoggedNonOK + ") of ");
-				msg.append("non-OK status objects differs from actual (" + statusLog.size() + ").\n");
+				msg.append("non-OK status objects in log differs from actual (" + statusLog.size() + ").\n");
 				Throwable cause= null;
 				if (!statusLog.isEmpty()) {
 					for (IStatus status : statusLog) {
@@ -272,6 +273,7 @@ public class BaseTestCase extends TestCase {
 			CoreModel.getDefault().removeElementChangedListener(this);
 		}
 		
+		@Override
 		public void elementChanged(ElementChangedEvent event) {
 			// Only respond to post change events
 			if (event.getType() != ElementChangedEvent.POST_CHANGE)
@@ -284,7 +286,7 @@ public class BaseTestCase extends TestCase {
 		}
 	}
     
-    protected void waitForIndexer(ICProject project) throws InterruptedException {
+    public static void waitForIndexer(ICProject project) throws InterruptedException {
 		final PDOMManager indexManager = CCoreInternals.getPDOMManager();
 		assertTrue(indexManager.joinIndexer(10000, npm()));
 		long waitms= 1;

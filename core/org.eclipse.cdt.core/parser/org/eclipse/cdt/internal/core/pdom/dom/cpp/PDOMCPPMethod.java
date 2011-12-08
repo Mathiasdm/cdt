@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2006, 2010 QNX Software Systems and others.
+ * Copyright (c) 2006, 2011 QNX Software Systems and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -25,6 +25,7 @@ import org.eclipse.cdt.core.dom.ast.IScope;
 import org.eclipse.cdt.core.dom.ast.IType;
 import org.eclipse.cdt.core.dom.ast.IVariable;
 import org.eclipse.cdt.core.dom.ast.cpp.ICPPASTFieldReference;
+import org.eclipse.cdt.core.dom.ast.cpp.ICPPASTQualifiedName;
 import org.eclipse.cdt.core.dom.ast.cpp.ICPPClassType;
 import org.eclipse.cdt.core.dom.ast.cpp.ICPPMethod;
 import org.eclipse.cdt.core.dom.ast.cpp.ICPPReferenceType;
@@ -80,7 +81,7 @@ class PDOMCPPMethod extends PDOMCPPFunction implements ICPPMethod {
 	}
 
 	@Override
-	public void update(final PDOMLinkage linkage, IBinding newBinding) throws CoreException {
+	public final void update(final PDOMLinkage linkage, IBinding newBinding) throws CoreException {
 		if (newBinding instanceof ICPPMethod) {
 			ICPPMethod method= (ICPPMethod) newBinding;
 			super.update(linkage, newBinding);
@@ -92,6 +93,11 @@ class PDOMCPPMethod extends PDOMCPPFunction implements ICPPMethod {
 			} catch (DOMException e) {
 				throw new CoreException(Util.createStatus(e));
 			}
+		} else if (newBinding == null && isImplicit()) {
+			// Clear the implicit flag, such that the binding will no longer be picked up.
+			byte annot= (byte) (getAnnotation1() ^ (1 << PDOMCPPAnnotation.IMPLICIT_METHOD_OFFSET));
+			getDB().putByte(record + ANNOTATION1, annot);
+			annotation1= annot;
 		}
 	}
 
@@ -105,6 +111,7 @@ class PDOMCPPMethod extends PDOMCPPFunction implements ICPPMethod {
 		return IIndexCPPBindingConstants.CPPMETHOD;
 	}
 
+	@Override
 	public boolean isVirtual() {
 		return getBit(getAnnotation1(), PDOMCPPAnnotation.VIRTUAL_OFFSET);
 	}
@@ -115,10 +122,12 @@ class PDOMCPPMethod extends PDOMCPPFunction implements ICPPMethod {
 		return annotation1;
 	}
 
+	@Override
 	public boolean isPureVirtual() {
 		return getBit(getAnnotation1(), PDOMCPPAnnotation.PURE_VIRTUAL_OFFSET);
 	}
 
+	@Override
 	public boolean isDestructor() {
 		return getBit(getAnnotation1(), PDOMCPPAnnotation.DESTRUCTOR_OFFSET);
 	}
@@ -128,10 +137,12 @@ class PDOMCPPMethod extends PDOMCPPFunction implements ICPPMethod {
 		return false;
 	}
 
+	@Override
 	public boolean isImplicit() {
 		return getBit(getAnnotation1(), PDOMCPPAnnotation.IMPLICIT_METHOD_OFFSET);
 	}
 	
+	@Override
 	public boolean isExplicit() {
 		return getBit(getAnnotation1(), PDOMCPPAnnotation.EXPLICIT_METHOD_OFFSET);
 	}
@@ -164,10 +175,12 @@ class PDOMCPPMethod extends PDOMCPPFunction implements ICPPMethod {
 		return false;
 	}
 
+	@Override
 	public int getVisibility() {
 		return PDOMCPPAnnotation.getVisibility(getAnnotation());
 	}
 
+	@Override
 	public ICPPClassType getClassOwner() {
 		return (ICPPClassType) getOwner();
 	}
@@ -189,8 +202,19 @@ class PDOMCPPMethod extends PDOMCPPFunction implements ICPPMethod {
 	public int getAdditionalNameFlags(int standardFlags, IASTName name) {
 		if ((standardFlags & PDOMName.IS_REFERENCE) == PDOMName.IS_REFERENCE) {
 			IASTNode parent= name.getParent();
-			if (parent instanceof ICPPASTFieldReference) {
-				// the name is not qualified
+			if (parent instanceof ICPPASTQualifiedName) {
+				// When taking the address of a method it will be called without suppressing
+				// the virtual mechanism
+				parent= parent.getParent();
+				if (parent instanceof IASTIdExpression) {
+					parent= parent.getParent();
+					if (parent instanceof IASTUnaryExpression) {
+						if (((IASTUnaryExpression) parent).getOperator() == IASTUnaryExpression.op_amper)
+							return PDOMName.COULD_BE_POLYMORPHIC_METHOD_CALL;
+					}
+				}
+			} else if (parent instanceof ICPPASTFieldReference) {
+				// The name is not qualified
 				ICPPASTFieldReference fr= (ICPPASTFieldReference) parent;
 				parent= parent.getParent();
 				if (parent instanceof IASTFunctionCallExpression) {
@@ -216,9 +240,8 @@ class PDOMCPPMethod extends PDOMCPPFunction implements ICPPMethod {
 						return PDOMName.COULD_BE_POLYMORPHIC_METHOD_CALL;
 					}
 				}
-			}
-			// calling a member from within a member
-			else if (parent instanceof IASTIdExpression) {
+			} else if (parent instanceof IASTIdExpression) {
+				// Calling a member from within a member
 				if (parent.getParent() instanceof IASTFunctionCallExpression) {
 					return PDOMName.COULD_BE_POLYMORPHIC_METHOD_CALL;
 				}

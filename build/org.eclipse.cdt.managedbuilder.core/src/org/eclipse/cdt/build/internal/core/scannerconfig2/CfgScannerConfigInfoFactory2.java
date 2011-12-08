@@ -46,12 +46,12 @@ public class CfgScannerConfigInfoFactory2 {
 	private static class ContainerInfo{
 		int fCode;
 		IScannerConfigBuilderInfo2Set fContainer;
-		
+
 		ContainerInfo(ICProjectDescription des, IScannerConfigBuilderInfo2Set container){
 			this.fCode = des.hashCode();
 			this.fContainer = container;
 		}
-		
+
 		public boolean matches(ICProjectDescription des){
 			return des.hashCode() == fCode;
 		}
@@ -60,17 +60,19 @@ public class CfgScannerConfigInfoFactory2 {
 		private Configuration cfg;
 		private SoftReference<IScannerConfigBuilderInfo2Set> fContainer;
 //		private HashMap map;
-		
+
 		CfgInfo(Configuration cfg){
 			this.cfg = cfg;
 //			init();
 		}
-		
+
+		@Override
 		public CfgInfoContext[] getContexts() {
 			Map<CfgInfoContext, IScannerConfigBuilderInfo2> map = createMap();
 			return map.keySet().toArray(new CfgInfoContext[map.size()]);
 		}
 
+		@Override
 		public IScannerConfigBuilderInfo2 getInfo(CfgInfoContext context) {
 			return createMap().get(context);
 //			IScannerConfigBuilderInfo2 info = null;
@@ -82,17 +84,18 @@ public class CfgScannerConfigInfoFactory2 {
 //			} else {
 //				Tool tool = (Tool)context.getTool();
 //				if(tool != null)
-//					info = tool.getScannerConfigInfo(context.getInputType()); 
+//					info = tool.getScannerConfigInfo(context.getInputType());
 ////				else
 ////					info = getDefaultInfo();
 //			}
 //			return info;
 		}
 
+		@Override
 		public boolean isPerRcTypeDiscovery() {
 			return cfg.isPerRcTypeDiscovery();
 		}
-		
+
 		private IScannerConfigBuilderInfo2Set getContainer() throws CoreException{
 			IScannerConfigBuilderInfo2Set container = fContainer != null ? fContainer.get() : null;
 			if(container == null){
@@ -120,13 +123,13 @@ public class CfgScannerConfigInfoFactory2 {
 					container = ScannerConfigProfileManager.createScannerConfigBuildInfo2Set(prefs, false);
 				}
 			}
-			
+
 			if(fContainer == null) {
 				fContainer = new SoftReference<IScannerConfigBuilderInfo2Set>(container);
 			}
 			return container;
 		}
-		
+
 		private Map<CfgInfoContext, IScannerConfigBuilderInfo2> createMap(){
 			HashMap<CfgInfoContext, IScannerConfigBuilderInfo2> map = new HashMap<CfgInfoContext, IScannerConfigBuilderInfo2>();
 			try{
@@ -136,16 +139,16 @@ public class CfgScannerConfigInfoFactory2 {
 				Map<InfoContext, IScannerConfigBuilderInfo2> baseMap = container.getInfoMap();
 				if(!isPerRcType){
 					// Discovery profile scope = configuration wide
-					
+
 					CfgInfoContext c = new CfgInfoContext(cfg);
 					InfoContext baseContext = c.toInfoContext();
 					IScannerConfigBuilderInfo2 info = container.getInfo(baseContext);
-	
+
 					if(info == null){
 						String id = cfg.getDiscoveryProfileId();
 						if(id == null)
 							id = CfgScannerConfigUtil.getFirstProfileId(cfg.getFilteredTools());
-						
+
 						IScannerConfigBuilderInfo2 prefInfo = null;
 						if(!cfg.isPreference()){
 							IConfiguration prefCfg = ManagedBuildManager.getPreferenceConfiguration(false);
@@ -164,10 +167,10 @@ public class CfgScannerConfigInfoFactory2 {
 								info = container.createInfo(baseContext, prefInfo, prefInfo.getSelectedProfileId());
 						}
 					}
-					map.put(new CfgInfoContext(cfg), info);				
+					map.put(new CfgInfoContext(cfg), info);
 				} else {
 					// Discovery profile scope = per language
-					
+
 					Map<CfgInfoContext, IScannerConfigBuilderInfo2> configMap = getConfigInfoMap(baseMap);
 
 					IResourceInfo[] rcInfos = cfg.getResourceInfos();
@@ -193,16 +196,17 @@ public class CfgScannerConfigInfoFactory2 {
 												info = configMap.get(superContext);
 											}
 
-											// Files with custom properties don't have a persisted entry in the config
-											// info map; we create an ephemeral entry instead. We need to assign that file 
-											// the scanner profile that's used for non-custom files of the same 
+											// Scanner discovery options aren't settable on a file-per-file basis. Thus
+											// files with custom properties don't have a persisted entry in the config
+											// info map; we create an ephemeral entry instead. We need to assign that file
+											// the scanner profile that's used for non-custom files of the same
 											// inputType/tool (and configuration, of course). Unfortunately, identifying
 											// a match is inefficient, but in practice, projects don't have tons of
 											// customized files. See Bug 354194
 											String id = null;
 											for (Entry<CfgInfoContext, IScannerConfigBuilderInfo2> entry : configMap.entrySet()) {
 												CfgInfoContext cfgInfoCxt = entry.getKey();
-												if (match(cfgInfoCxt.getInputType(), context.getInputType()) && 
+												if (match(cfgInfoCxt.getInputType(), context.getInputType()) &&
 														match(cfgInfoCxt.getTool(), context.getTool().getSuperClass()) &&
 														cfgInfoCxt.getConfiguration().equals(context.getConfiguration())) {
 													id = entry.getValue().getSelectedProfileId();
@@ -211,7 +215,7 @@ public class CfgScannerConfigInfoFactory2 {
 											if (id == null) {
 												id = CfgScannerConfigUtil.getDefaultProfileId(context, true);
 											}
-											
+
 											InfoContext baseContext = context.toInfoContext();
 											if(info == null){
 												if(id != null){
@@ -231,8 +235,13 @@ public class CfgScannerConfigInfoFactory2 {
 											// permanent and stagnant part of the project description. It was
 											// added to the container only so we could obtain an
 											// IScannerConfigBuilderInfo2. Now that we have the info object,
-											// revert the container. See Bug 354194
-											container.removeInfo(context.toInfoContext());
+											// revert the container. See Bug 354194. Note that the permanent
+											// entry for the project's root folder resource info gets created
+											// by us shortly after project creation; thus we have to make an
+											// exception for that rcinfo.
+											if (!(rcInfo instanceof IFolderInfo && rcInfo.getPath().isEmpty())) {
+												container.removeInfo(context.toInfoContext());
+											}
 										}
 										if(info != null){
 											map.put(context, info);
@@ -262,7 +271,7 @@ public class CfgScannerConfigInfoFactory2 {
 							}
 						}
 					}
-					
+
 					if(!configMap.isEmpty()){
 						for (Entry<CfgInfoContext, IScannerConfigBuilderInfo2> entry : configMap.entrySet()) {
 							if(map.containsKey(entry.getKey()))
@@ -282,10 +291,10 @@ public class CfgScannerConfigInfoFactory2 {
 
 			return map;
 		}
-		
+
 		private Map<CfgInfoContext, IScannerConfigBuilderInfo2> getConfigInfoMap(Map<InfoContext, IScannerConfigBuilderInfo2> baseMap){
 			Map<CfgInfoContext, IScannerConfigBuilderInfo2> map = new HashMap<CfgInfoContext, IScannerConfigBuilderInfo2>();
-			
+
 			for (Entry<InfoContext, IScannerConfigBuilderInfo2> entry : baseMap.entrySet()) {
 				InfoContext baseContext = entry.getKey();
 				CfgInfoContext c = CfgInfoContext.fromInfoContext(cfg, baseContext);
@@ -298,14 +307,17 @@ public class CfgScannerConfigInfoFactory2 {
 			return map;
 		}
 
+		@Override
 		public Map<CfgInfoContext,IScannerConfigBuilderInfo2> getInfoMap() {
 			return createMap();
 		}
 
+		@Override
 		public void setPerRcTypeDiscovery(boolean on) {
 			cfg.setPerRcTypeDiscovery(on);
 		}
 
+		@Override
 		public IScannerConfigBuilderInfo2 applyInfo(CfgInfoContext context,
 				IScannerConfigBuilderInfo2 base) {
 			try {
@@ -319,7 +331,7 @@ public class CfgScannerConfigInfoFactory2 {
 						container.removeInfo(baseContext);
 					newInfo = getInfo(context);
 				}
-				
+
 				return newInfo;
 			} catch (CoreException e) {
 				ManagedBuilderCorePlugin.log(e);
@@ -327,10 +339,12 @@ public class CfgScannerConfigInfoFactory2 {
 			return null;
 		}
 
+		@Override
 		public IConfiguration getConfiguration() {
 			return cfg;
 		}
 
+		@Override
 		public boolean isProfileSupported(CfgInfoContext context,
 				String profileId) {
 			if(!isPerRcTypeDiscovery())
@@ -367,7 +381,7 @@ public class CfgScannerConfigInfoFactory2 {
 			des.setSessionProperty(CONTAINER_INFO_PROPERTY, null);
 		}
 	}
-	
+
 	public static void savePreference(IConfiguration cfg) throws CoreException{
 		ICfgScannerConfigBuilderInfo2Set container = ((Configuration)cfg).getCfgScannerConfigInfo();
 		if(container != null){
@@ -377,25 +391,25 @@ public class CfgScannerConfigInfoFactory2 {
 			}
 		}
 	}
-	
+
 	private static boolean match(ITool t1, ITool t2){
 		if (t1 == null || t2 == null)
 			return false;
 		if (t1.getId().equals(t2.getId())) {
 			return true;
 		}
-		
-		return match(t1.getSuperClass(), t2.getSuperClass()); 
+
+		return match(t1.getSuperClass(), t2.getSuperClass());
 	}
-	
+
 	private static boolean match(IInputType i1, IInputType i2){
 		if (i1 == null || i2 == null)
 			return false;
 		if (i1.getId().equals(i2.getId())) {
 			return true;
 		}
-		
-		return match(i1.getSuperClass(), i2.getSuperClass()); 
+
+		return match(i1.getSuperClass(), i2.getSuperClass());
 	}
-	
+
 }

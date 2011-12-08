@@ -15,8 +15,11 @@
  *******************************************************************************/
 package org.eclipse.cdt.internal.core.dom.parser.cpp;
 
+import static org.eclipse.cdt.internal.core.dom.parser.cpp.semantics.SemanticUtil.ARRAY;
+import static org.eclipse.cdt.internal.core.dom.parser.cpp.semantics.SemanticUtil.CVTYPE;
+import static org.eclipse.cdt.internal.core.dom.parser.cpp.semantics.SemanticUtil.TDEF;
+
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -181,7 +184,7 @@ public class ClassTypeHelper {
 				ICPPClassType backup= getBackupDefinition(host);
 				if (backup != null)
 					return backup.getBases();
-				
+
 				return ICPPBase.EMPTY_BASE_ARRAY;
 			}
 		}
@@ -204,7 +207,7 @@ public class ClassTypeHelper {
 				ICPPClassType backup= getBackupDefinition(host);
 				if (backup != null)
 					return backup.getDeclaredFields();
-				
+
 				return ICPPField.EMPTY_CPPFIELD_ARRAY;
 			}
 		}
@@ -236,7 +239,7 @@ public class ClassTypeHelper {
 		}
 		return (ICPPField[]) ArrayUtil.trim(ICPPField.class, result);
 	}
-	
+
 	/**
 	 * Returns all direct and indirect base classes. 
 	 * @param classType a class
@@ -249,7 +252,7 @@ public class ClassTypeHelper {
 		result.remove(classType);
 		return result.toArray(new ICPPClassType[result.size()]);
 	}
-	
+
 	private static void getAllBases(ICPPClassType classType, HashSet<ICPPClassType> result) {
 		ICPPBase[] bases= classType.getBases();
 		for (ICPPBase base : bases) {
@@ -292,10 +295,10 @@ public class ClassTypeHelper {
 		}
 		return (ICPPMethod[]) ArrayUtil.trim(ICPPMethod.class, methods);
 	}
-	
+
 	public static ICPPMethod[] getMethods(ICPPClassType ct) {
 		ObjectSet<ICPPMethod> set = getOwnMethods(ct);
-		
+
 		ICPPClassType[] bases= getAllBases(ct);
 		for (ICPPClassType base : bases) {
 			set.addAll(base.getDeclaredMethods());
@@ -314,14 +317,13 @@ public class ClassTypeHelper {
 	private static ObjectSet<ICPPMethod> getOwnMethods(ICPPClassType classType) {
 		ObjectSet<ICPPMethod> set= new ObjectSet<ICPPMethod>(4);
 		set.addAll(classType.getDeclaredMethods());
-		if (classType instanceof IProblemBinding) {
-			return set;
+		IScope scope = classType.getCompositeScope();
+		if (scope instanceof ICPPClassScope) {
+			set.addAll(((ICPPClassScope) scope).getImplicitMethods());
 		}
-		ICPPClassScope scope= (ICPPClassScope) classType.getCompositeScope();
-		set.addAll(scope.getImplicitMethods());
 		return set;
 	}
-	
+
 	public static ICPPMethod[] getDeclaredMethods(ICPPInternalClassTypeMixinHost host) {
 		if (host.getDefinition() == null) {
 			host.checkForDefinition();
@@ -395,7 +397,7 @@ public class ClassTypeHelper {
 				ICPPClassType backup= getBackupDefinition(host);
 				if (backup != null)
 					return backup.getNestedClasses();
-				
+
 				return ICPPClassType.EMPTY_CLASS_ARRAY;
 			}
 		}
@@ -447,18 +449,17 @@ public class ClassTypeHelper {
 		}
 		return field;
 	}
-	
-	
+
 	/**
-	 * Returns whether {@code method} is virtual. This is the case if it is declared to be virtual or
-	 * overrides another virtual method.
+	 * Returns whether {@code method} is virtual. This is the case if it is declared to be virtual
+	 * or overrides another virtual method.
 	 */
 	public static boolean isVirtual(ICPPMethod m) {
 		if (m instanceof ICPPConstructor)
 			return false;
 		if (m.isVirtual()) 
 			return true;
-		
+
 		final char[] mname= m.getNameCharArray();
 		final ICPPClassType mcl= m.getClassOwner();
 		if (mcl != null) {
@@ -513,18 +514,18 @@ public class ClassTypeHelper {
 			return false;
 		if (!functionTypesAllowOverride(source.getType(), target.getType()))
 			return false;
-		
+
 		final ICPPClassType sourceClass= source.getClassOwner();
 		final ICPPClassType targetClass= target.getClassOwner();
 		if (sourceClass == null || targetClass == null)
 			return false;
-		
+
 		ICPPClassType[] bases= getAllBases(sourceClass);
 		for (ICPPClassType base : bases) {
 			if (base.isSameType(targetClass))
 				return true;
 		}
-		
+
 		return false;
 	}
 
@@ -534,12 +535,12 @@ public class ClassTypeHelper {
 	public static ICPPMethod[] findOverridden(ICPPMethod method) {
 		if (method instanceof ICPPConstructor)
 			return ICPPMethod.EMPTY_CPPMETHOD_ARRAY;
-		
+
 		final char[] mname= method.getNameCharArray();
 		final ICPPClassType mcl= method.getClassOwner();
 		if (mcl == null) 
 			return ICPPMethod.EMPTY_CPPMETHOD_ARRAY;
-		
+
 		final ArrayList<ICPPMethod> result= new ArrayList<ICPPMethod>();
 		final HashMap<ICPPClassType, Boolean> virtualInClass= new HashMap<ICPPClassType, Boolean>();
 		final ICPPFunctionType mft= method.getType();
@@ -552,7 +553,7 @@ public class ClassTypeHelper {
 				findOverridden((ICPPClassType) b, mname, mft, virtualInClass, result);
 			}
 		}
-		
+
 		// list is filled from most derived up to here, reverse it
 		Collections.reverse(result);
 		return result.toArray(new ICPPMethod[result.size()]);
@@ -569,7 +570,7 @@ public class ClassTypeHelper {
 		Boolean visitedBefore= virtualInClass.get(cl);
 		if (visitedBefore != null)
 			return visitedBefore;
-		
+
 		ICPPMethod[] methods= cl.getDeclaredMethods();
 		ICPPMethod candidate= null;
 		boolean hasOverridden= false;
@@ -580,7 +581,7 @@ public class ClassTypeHelper {
 				break;
 			}
 		}
-		
+
 		// prevent recursion
 		virtualInClass.put(cl, hasOverridden);
 		ICPPBase[] bases= cl.getBases();
@@ -612,7 +613,7 @@ public class ClassTypeHelper {
 		final ICPPClassType mcl= method.getClassOwner();
 		if (mcl == null) 
 			return ICPPMethod.EMPTY_CPPMETHOD_ARRAY;
-		
+
 		ICPPClassType[] subclasses= getSubClasses(index, mcl);
 		return findOverriders(subclasses, method);
 	}
@@ -647,7 +648,7 @@ public class ClassTypeHelper {
 	private static void getSubClasses(IIndex index, ICPPBinding classOrTypedef, List<ICPPBinding> result, HashSet<String> handled) throws CoreException {
 		if (!(classOrTypedef instanceof IType))
 			return;
-		
+
 		final String key = ASTTypeUtil.getType((IType) classOrTypedef, true);
 		if (!handled.add(key)) {
 			return;
@@ -676,7 +677,7 @@ public class ClassTypeHelper {
 	private static final int KIND_ASSIGNMENT_OP= 2;
 	private static final int KIND_DTOR= 3;
 	private static final int KIND_OTHER= 4;
-	
+
 	/**
 	 * For implicit methods the exception specification is inherited, search it
 	 */
@@ -690,7 +691,7 @@ public class ClassTypeHelper {
 		int kind= getImplicitMethodKind(owner, implicitMethod);
 		if (kind == KIND_OTHER)
 			return null;
-		
+
 		List<IType> inheritedTypeids = new ArrayList<IType>();
 		ICPPClassType[] bases= getAllBases(owner);
 		for (ICPPClassType base : bases) {
@@ -739,13 +740,13 @@ public class ClassTypeHelper {
 			}
 			return KIND_OTHER;
 		}
-		return KIND_OTHER;	
+		return KIND_OTHER;
 	}
 
 	private static boolean isRefToConstClass(ICPPClassType ct, IType t) {
 		while (t instanceof ITypedef)
 			t= ((ITypedef) t).getType();
-		
+
 		if (t instanceof ICPPReferenceType) {
 			t= ((ICPPReferenceType) t).getType();
 			while (t instanceof ITypedef)
@@ -812,6 +813,126 @@ public class ClassTypeHelper {
 	}
 
 	/**
+	 * Returns <code>true</code> if and only if the given class has a trivial copy constructor.
+	 * A copy constructor is trivial if:
+	 * <ul>
+	 * <li>it is implicitly defined by the compiler, and</li>
+	 * <li><code>isPolymorphic(classTarget) == false</code>, and</li>
+	 * <li>the class has no virtual base classes, and</li>
+	 * <li>every direct base class has trivial copy constructor, and</li>
+	 * <li>for every nonstatic data member that has class type or array of class type, that type
+	 * has trivial copy constructor.</li>
+	 * </ul>
+	 * Similar to <code>std::tr1::has_trivial_copy</code>.
+	 *
+	 * @param classTarget the class to check
+	 * @return <code>true</code> if the class has a trivial copy constructor
+	 */
+	public static boolean hasTrivialCopyCtor(ICPPClassType classTarget) {
+		if (getImplicitCopyCtor(classTarget) == null)
+			return false;
+		if (isPolymorphic(classTarget))
+			return false;
+		for (ICPPBase base : classTarget.getBases()) {
+			if (base.isVirtual())
+				return false;
+		}
+		for (ICPPClassType baseClass : getAllBases(classTarget)) {
+			if (!classTarget.isSameType(baseClass) && !hasTrivialCopyCtor(baseClass))
+				return false;
+		}
+		for (ICPPField field : classTarget.getDeclaredFields()) {
+			if (!field.isStatic()) {
+				IType type = field.getType();
+				type = SemanticUtil.getNestedType(type, TDEF | CVTYPE | ARRAY);
+				if (type instanceof ICPPClassType && !classTarget.isSameType(type) &&
+						!hasTrivialCopyCtor((ICPPClassType) type)) {
+					return false;
+				}
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * Returns the compiler-generated copy constructor for the given class, or <code>null</code>
+	 * if the class doesn't have a compiler-generated copy constructor.
+	 * 
+	 * @param classTarget the class to get the copy ctor for. 
+	 * @return the compiler-generated copy constructor, or <code>null</code> if the class doesn't
+	 * have a compiler-generated copy constructor.
+	 */
+	private static ICPPConstructor getImplicitCopyCtor(ICPPClassType classTarget) {
+		for (ICPPConstructor ctor : classTarget.getConstructors()) {
+			if (ctor.isImplicit() && getImplicitMethodKind(classTarget, ctor) == KIND_COPY_CTOR)
+				return ctor;
+		}
+		return null;
+	}
+
+	/**
+	 * Returns <code>true</code> if and only if the given class has a trivial destructor.
+	 * A destructor is trivial if:
+	 * <ul>
+	 * <li>it is implicitly defined by the compiler, and</li>
+	 * <li>every direct base class has trivial destructor, and</li>
+	 * <li>for every nonstatic data member that has class type or array of class type, that type
+	 * has trivial destructor.</li>
+	 * </ul>
+	 * Similar to <code>std::tr1::has_trivial_destructor</code>.
+	 *
+	 * @param classTarget the class to check
+	 * @return <code>true</code> if the class has a trivial destructor
+	 */
+	public static boolean hasTrivialDestructor(ICPPClassType classTarget) {
+		for (ICPPMethod method : classTarget.getDeclaredMethods()) {
+			if (method.isDestructor())
+				return false;
+		}
+		for (ICPPClassType baseClass : getAllBases(classTarget)) {
+			if (!classTarget.isSameType(baseClass) && !hasTrivialDestructor(baseClass))
+				return false;
+		}
+		for (ICPPField field : classTarget.getDeclaredFields()) {
+			if (!field.isStatic()) {
+				IType type = field.getType();
+				type = SemanticUtil.getNestedType(type, TDEF | CVTYPE | ARRAY);
+				if (type instanceof ICPPClassType && !classTarget.isSameType(type) &&
+						!hasTrivialDestructor((ICPPClassType) type)) {
+					return false;
+				}
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * Returns <code>true</code> if and only if the given class declares or inherits a virtual
+	 * function. Similar to <code>std::tr1::is_polymorphic</code>.
+	 *
+	 * @param classTarget the class to check
+	 * @return <code>true</code> if the class declares or inherits a virtual function.
+	 */
+	public static boolean isPolymorphic(ICPPClassType classTarget) {
+		if (hasDeclaredVirtualMethod(classTarget))
+			return true;
+		for (ICPPClassType baseClass : getAllBases(classTarget)) {
+			if (hasDeclaredVirtualMethod(baseClass))
+				return true;
+		}
+		return false;
+	}
+
+	private static boolean hasDeclaredVirtualMethod(ICPPClassType classTarget) {
+		for (ICPPMethod method : classTarget.getDeclaredMethods()) {
+			if (method.isVirtual()) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
 	 * Checks whether class is abstract, i.e. has pure virtual functions that were
 	 * not implemented in base after declaration.
 	 * 
@@ -820,20 +941,75 @@ public class ClassTypeHelper {
 	 * template parameters.
 	 */
 	public static ICPPMethod[] getPureVirtualMethods(ICPPClassType classType) {
-		Collection<Set<ICPPMethod>> result = collectPureVirtualMethods(classType).values();
+		Map<String, List<ICPPMethod>> result= collectPureVirtualMethods(classType, 
+				new HashMap<ICPPClassType, Map<String, List<ICPPMethod>>>());
+
 		int resultArraySize = 0;
-		for (Set<ICPPMethod> set : result) {
-			resultArraySize += set.size();
+		for (List<ICPPMethod> methods : result.values()) {
+			resultArraySize += methods.size();
 		}
 		ICPPMethod[] resultArray = new ICPPMethod[resultArraySize];
 		int resultArrayIdx = 0;
-		for (Set<ICPPMethod> methodsSet : result) {
-			for (ICPPMethod method : methodsSet) {
-				resultArray[resultArrayIdx] = method;
-				++resultArrayIdx;
+		for (List<ICPPMethod> methods : result.values()) {
+			for (ICPPMethod method : methods) {
+				resultArray[resultArrayIdx++] = method;
 			}
 		}
 		return resultArray;
+	}
+
+	private static Map<String, List<ICPPMethod>> collectPureVirtualMethods(ICPPClassType classType,
+			Map<ICPPClassType, Map<String, List<ICPPMethod>>> cache) {
+		Map<String, List<ICPPMethod>> result = cache.get(classType);
+		if (result != null)
+			return result;
+
+		result= new HashMap<String, List<ICPPMethod>>();
+		cache.put(classType, result);
+
+		// Look at the pure virtual methods of the base classes
+		Set<IBinding> handledBaseClasses= new HashSet<IBinding>();
+		for (ICPPBase base : classType.getBases()) {
+			final IBinding baseClass = base.getBaseClass();
+			if (baseClass instanceof ICPPClassType && handledBaseClasses.add(baseClass)) {
+				Map<String, List<ICPPMethod>> pureVirtuals = collectPureVirtualMethods((ICPPClassType) baseClass, cache);
+				// Merge derived pure virtual methods
+				for (String key : pureVirtuals.keySet()) {
+					List<ICPPMethod> list = result.get(key);
+					if (list == null) {
+						list= new ArrayList<ICPPMethod>();
+						result.put(key, list);
+					}
+					list.addAll(pureVirtuals.get(key));
+				}
+			}
+		}
+
+		// Remove overridden pure-virtual methods and add in new pure virutals.
+		final ObjectSet<ICPPMethod> methods = getOwnMethods(classType);
+		for (ICPPMethod method : methods) {
+			String key= getMethodNameForOverrideKey(method);
+			List<ICPPMethod> list = result.get(key);
+			if (list != null) {
+				final ICPPFunctionType methodType = method.getType();
+				for (Iterator<ICPPMethod> it= list.iterator(); it.hasNext(); ) {
+					ICPPMethod pureVirtual = it.next();
+					if (functionTypesAllowOverride(methodType, pureVirtual.getType())) {
+						it.remove();
+					}
+				}
+			}
+			if (method.isPureVirtual()) {
+				if (list == null) {
+					list= new ArrayList<ICPPMethod>();
+					result.put(key, list);
+				}
+				list.add(method);
+			} else if (list != null && list.isEmpty()) {
+				result.remove(key);
+			}
+		}
+		return result;
 	}
 
 	private static String getMethodNameForOverrideKey(ICPPMethod method) {
@@ -843,60 +1019,5 @@ public class ClassTypeHelper {
 		} else {
 			return method.getName();
 		}
-	}
-
-	/**
-	 * Returns pure virtual methods of the given class grouped by their names.
-	 * 
-	 * @param classType The class to obtain the pure virtual method for.
-	 * @return pure virtual methods grouped by their names.
-	 */
-	private static Map<String, Set<ICPPMethod> > collectPureVirtualMethods(ICPPClassType classType) {
-		// Collect pure virtual functions from base classes
-		Map<String, Set<ICPPMethod>> pureVirtualMethods = new HashMap<String, Set<ICPPMethod>>();
-		for (ICPPBase base : classType.getBases()) {
-			if (base.getBaseClass() instanceof ICPPClassType) {
-				ICPPClassType baseClass = (ICPPClassType) base.getBaseClass();
-				Map<String, Set<ICPPMethod> > derivedPureVirtualMethods = collectPureVirtualMethods(baseClass);
-				// Merge derived pure virtual methods
-				for (Map.Entry<String, Set<ICPPMethod> > currMethodEntry : derivedPureVirtualMethods.entrySet()) {
-					Set<ICPPMethod> methodsSet = pureVirtualMethods.get(currMethodEntry.getKey());
-					if (methodsSet == null) {
-						pureVirtualMethods.put(currMethodEntry.getKey(), currMethodEntry.getValue());
-					} else {
-						methodsSet.addAll(currMethodEntry.getValue());
-					}						
-				}
-			}
-		}
-
-		// Remove overridden methods (even if they are pure virtual)
-		for (ICPPMethod declaredMethod : getOwnMethods(classType)) {
-			Set<ICPPMethod> methodsSet = pureVirtualMethods.get(getMethodNameForOverrideKey(declaredMethod));
-			if (methodsSet != null) {
-				for (Iterator<ICPPMethod> methodIt = methodsSet.iterator(); methodIt.hasNext();) {
-					ICPPMethod method = methodIt.next();
-					if (functionTypesAllowOverride(declaredMethod.getType(), method.getType())) {
-						methodIt.remove();
-					}
-				}
-				if (methodsSet.isEmpty()) {
-					pureVirtualMethods.remove(getMethodNameForOverrideKey(declaredMethod));
-				}
-			}
-		}
-
-		// Add pure virtual methods of current class
-		for (ICPPMethod method : classType.getDeclaredMethods()) {
-			if (method.isPureVirtual()) {
-				Set<ICPPMethod> methodsSet = pureVirtualMethods.get(getMethodNameForOverrideKey(method));
-				if (methodsSet == null) {
-					methodsSet = new HashSet<ICPPMethod>();
-					pureVirtualMethods.put(getMethodNameForOverrideKey(method), methodsSet);
-				}
-				methodsSet.add(method);
-			}
-		}
-		return pureVirtualMethods;
 	}
 }

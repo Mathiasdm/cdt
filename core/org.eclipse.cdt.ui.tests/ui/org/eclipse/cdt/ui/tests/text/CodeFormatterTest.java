@@ -535,11 +535,13 @@ public class CodeFormatterTest extends BaseUITestCase {
 	//static void *f(){}
 	//static void * g();
 	//static void* h();
+	//int* (*a) [2];
 
 	//static void *f() {
 	//}
 	//static void * g();
 	//static void* h();
+	//int* (*a)[2];
 	public void testSpaceBetweenDeclSpecAndDeclarator() throws Exception {
 		assertFormatterResult();
 	}
@@ -963,7 +965,7 @@ public class CodeFormatterTest extends BaseUITestCase {
 	//M* A::c(M* tm) { N::iterator it = myN.find(tm); if (!it) return NULL; else return *it; }
 
 	//void A::a(C e) {
-	//	if (D::iterator it = m.find (e))
+	//	if (D::iterator it = m.find(e))
 	//		m.erase(it);
 	//}
 	//T* A::b(T* t) {
@@ -1173,6 +1175,52 @@ public class CodeFormatterTest extends BaseUITestCase {
 		fOptions.put(DefaultCodeFormatterConstants.FORMATTER_TAB_CHAR, CCorePlugin.SPACE);
 		fOptions.put(DefaultCodeFormatterConstants.FORMATTER_ALIGNMENT_FOR_ARGUMENTS_IN_METHOD_INVOCATION,
 				Integer.toString(Alignment.M_COMPACT_SPLIT | Alignment.M_INDENT_ON_COLUMN));
+		assertFormatterResult();
+	}
+
+	//int function_with_a_long_name(int, int);
+	//int function_with_an_even_looooooooooooooooonger_name(int, int);
+	//
+	//void test() {
+	//function_with_a_long_name(function_with_an_even_looooooooooooooooonger_name(1000000,2000000),3000000);
+	//function_with_a_long_name(function_with_an_even_looooooooooooooooonger_name(1000000,20000000),3000000);
+	//}
+
+	//int function_with_a_long_name(int, int);
+	//int function_with_an_even_looooooooooooooooonger_name(int, int);
+	//
+	//void test() {
+	//    function_with_a_long_name(
+	//            function_with_an_even_looooooooooooooooonger_name(1000000, 2000000),
+	//            3000000);
+	//    function_with_a_long_name(
+	//            function_with_an_even_looooooooooooooooonger_name(1000000,
+	//                    20000000), 3000000);
+	//}
+	public void testFunctionCall_4() throws Exception {
+		fOptions.put(DefaultCodeFormatterConstants.FORMATTER_TAB_CHAR, CCorePlugin.SPACE);
+		assertFormatterResult();
+	}
+
+	//template<typename T, typename U>
+	//struct type_with_multiple_template_parameters {};
+	//
+	//void wrap_when_necessary(type_with_multiple_template_parameters<char, float> p1, int p2, int p3) {}
+	//void wrap_when_necessary(type_with_multiple_template_parameters<float, float> p1, int p2, int p3) {}
+
+	//template<typename T, typename U>
+	//struct type_with_multiple_template_parameters {
+	//};
+	//
+	//void wrap_when_necessary(type_with_multiple_template_parameters<char, float> p1,
+	//        int p2, int p3) {
+	//}
+	//void wrap_when_necessary(
+	//        type_with_multiple_template_parameters<float, float> p1, int p2,
+	//        int p3) {
+	//}
+	public void testFunctionCallWithTemplates_Bug357300() throws Exception {
+		fOptions.put(DefaultCodeFormatterConstants.FORMATTER_TAB_CHAR, CCorePlugin.SPACE);
 		assertFormatterResult();
 	}
 
@@ -1502,6 +1550,24 @@ public class CodeFormatterTest extends BaseUITestCase {
 	//	}
 	//}
 	public void testCompoundStatementAsMacro_Bug244928() throws Exception {
+		assertFormatterResult();
+	}
+
+	//#define BLOCK { }
+	//#define ALWAYS if(true)
+	//
+	//void foo() {
+	//ALWAYS BLOCK
+	//}
+
+	//#define BLOCK { }
+	//#define ALWAYS if(true)
+	//
+	//void foo() {
+	//	ALWAYS
+	//		BLOCK
+	//}
+	public void testCompoundStatementAsMacro_Temp() throws Exception {
 		assertFormatterResult();
 	}
 
@@ -2369,6 +2435,70 @@ public class CodeFormatterTest extends BaseUITestCase {
 		assertFormatterResult();
 	}
 
+	//struct Stream {
+	//Stream& operator <<(const char*);
+	//};
+	//Stream GetStream();
+	//
+	//#define MY_MACRO switch (0) case 0: default: GetStream()
+	//
+	//void test() {
+	//MY_MACRO << "Loooooooooooooooooooong string literal" << " another literal.";
+	//MY_MACRO << "Looooooooooooooooooooong string literal" << " another literal.";
+	//}
+
+	//struct Stream {
+	//    Stream& operator <<(const char*);
+	//};
+	//Stream GetStream();
+	//
+	//#define MY_MACRO switch (0) case 0: default: GetStream()
+	//
+	//void test() {
+	//    MY_MACRO << "Loooooooooooooooooooong string literal" << " another literal.";
+	//    MY_MACRO << "Looooooooooooooooooooong string literal"
+	//             << " another literal.";
+	//}
+	public void testOverloadedLeftShiftChain_5() throws Exception {
+		fOptions.put(DefaultCodeFormatterConstants.FORMATTER_TAB_CHAR, CCorePlugin.SPACE);
+		fOptions.put(DefaultCodeFormatterConstants.FORMATTER_ALIGNMENT_FOR_OVERLOADED_LEFT_SHIFT_CHAIN,
+				Integer.toString(Alignment.M_COMPACT_SPLIT | Alignment.M_INDENT_ON_COLUMN));
+		assertFormatterResult();
+	}
+
+	//struct Stream {
+	//Stream& operator <<(const char*);
+	//};
+	//Stream GetStream();
+	//
+	//#define MY_MACRO switch (0) case 0: default: if (bool x = false) ; else GetStream()
+	//
+	//void test() {
+	//MY_MACRO
+	//<< "Loooooooooooooooooooong string literal" << " another literal.";
+	//MY_MACRO
+	//<< "Looooooooooooooooooooong string literal" << " another literal.";
+	//}
+
+	//struct Stream {
+	//    Stream& operator <<(const char*);
+	//};
+	//Stream GetStream();
+	//
+	//#define MY_MACRO switch (0) case 0: default: if (bool x = false) ; else GetStream()
+	//
+	//void test() {
+	//    MY_MACRO << "Loooooooooooooooooooong string literal" << " another literal.";
+	//    MY_MACRO << "Looooooooooooooooooooong string literal"
+	//             << " another literal.";
+	//}
+	public void testOverloadedLeftShiftChain_6() throws Exception {
+		fOptions.put(DefaultCodeFormatterConstants.FORMATTER_TAB_CHAR, CCorePlugin.SPACE);
+		fOptions.put(DefaultCodeFormatterConstants.FORMATTER_ALIGNMENT_FOR_OVERLOADED_LEFT_SHIFT_CHAIN,
+				Integer.toString(Alignment.M_COMPACT_SPLIT | Alignment.M_INDENT_ON_COLUMN));
+		assertFormatterResult();
+	}
+
 	//int main() {
 	//	std::vector<std::vector<int>> test;
 	//	// some comment
@@ -2575,6 +2705,78 @@ public class CodeFormatterTest extends BaseUITestCase {
 	//		m(i);
 	//}
 	public void testMacroInElseBranch_Bug350689() throws Exception {
+		assertFormatterResult();
+	}
+
+	//#define EXPR(a) a
+	//void f(){
+	//switch(EXPR(1)){default:break;}
+	//}
+
+	//#define EXPR(a) a
+	//void f() {
+	//    switch (EXPR(1)) {
+	//    default:
+	//        break;
+	//    }
+	//}
+	public void testMacroInSwitch() throws Exception {
+		fOptions.put(DefaultCodeFormatterConstants.FORMATTER_TAB_CHAR, CCorePlugin.SPACE);
+		assertFormatterResult();
+	}
+
+	//#define IF(cond) if(cond){}
+	//void f() { if(1){}IF(1>0);}
+
+	//#define IF(cond) if(cond){}
+	//void f() {
+	//	if (1) {
+	//	}
+	//	IF(1>0);
+	//}
+	public void testMacroAfterCompoundStatement_Bug356690() throws Exception {
+		assertFormatterResult();
+	}
+
+	//enum SomeEnum {
+	//FirstValue,// first value comment
+	//SecondValue// second value comment
+	//};
+	//enum OtherEnum {
+	//First,// first value comment
+	//Second,// second value comment
+	//};
+
+	//enum SomeEnum {
+	//    FirstValue,  // first value comment
+	//    SecondValue  // second value comment
+	//};
+	//enum OtherEnum {
+	//    First,  // first value comment
+	//    Second,  // second value comment
+	//};
+	public void testEnum() throws Exception {
+		fOptions.put(DefaultCodeFormatterConstants.FORMATTER_TAB_CHAR, CCorePlugin.SPACE);
+		fOptions.put(DefaultCodeFormatterConstants.FORMATTER_COMMENT_MIN_DISTANCE_BETWEEN_CODE_AND_LINE_COMMENT, "2");
+		assertFormatterResult();
+	}
+
+	//#define TESTING(m) ;do{}while(0)
+	//void f() {
+	//	TESTING(1);
+	//	if(Test(a) != 1) {
+	//		status = ERROR;
+	//	}
+	//}
+
+	//#define TESTING(m) ;do{}while(0)
+	//void f() {
+	//	TESTING(1);
+	//	if (Test(a) != 1) {
+	//		status = ERROR;
+	//	}
+	//}
+	public void testDoWhileInMacro_Bug359658() throws Exception {
 		assertFormatterResult();
 	}
 }

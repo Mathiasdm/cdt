@@ -49,6 +49,7 @@ import org.eclipse.cdt.core.dom.ast.IType;
 import org.eclipse.cdt.core.dom.ast.ITypedef;
 import org.eclipse.cdt.core.dom.ast.IVariable;
 import org.eclipse.cdt.core.dom.ast.cpp.ICPPASTExplicitTemplateInstantiation;
+import org.eclipse.cdt.core.dom.ast.cpp.ICPPASTFunctionCallExpression;
 import org.eclipse.cdt.core.dom.ast.cpp.ICPPASTNamedTypeSpecifier;
 import org.eclipse.cdt.core.dom.ast.cpp.ICPPASTQualifiedName;
 import org.eclipse.cdt.core.dom.ast.cpp.ICPPASTTemplateId;
@@ -1725,8 +1726,13 @@ public class AST2TemplateTests extends AST2BaseTest {
 		ICPPConstructor ctor = (ICPPConstructor) col.getName(2).resolveBinding();
 		ICPPFunction f = (ICPPFunction) col.getName(5).resolveBinding();
 		
-		ICPPSpecialization spec = (ICPPSpecialization) col.getName(11).resolveBinding();
-		assertSame(spec.getSpecializedBinding(), ctor);
+		final IASTName typeConversion = col.getName(11);
+		ICPPSpecialization spec = (ICPPSpecialization) typeConversion.resolveBinding();
+		assertSame(ctor.getOwner(), spec.getSpecializedBinding());
+		
+		final ICPPASTFunctionCallExpression fcall = (ICPPASTFunctionCallExpression) typeConversion.getParent().getParent();
+		final IBinding ctorSpec = fcall.getImplicitNames()[0].resolveBinding();
+		assertSame(ctor, (((ICPPSpecialization) ctorSpec).getSpecializedBinding()));
 		
 		assertSame(f, col.getName(10).resolveBinding());
 	}
@@ -1750,9 +1756,14 @@ public class AST2TemplateTests extends AST2BaseTest {
 		ICPPConstructor ctor = (ICPPConstructor) col.getName(3).resolveBinding();
 		ICPPMethod add = (ICPPMethod) col.getName(9).resolveBinding();
 		
-		ICPPSpecialization spec = (ICPPSpecialization) col.getName(20).resolveBinding();
-		assertSame(spec.getSpecializedBinding(), ctor);
+		final IASTName typeConversion = col.getName(20);
+		ICPPSpecialization spec = (ICPPSpecialization) typeConversion.resolveBinding();
+		assertSame(ctor.getOwner(), spec.getSpecializedBinding());
 		
+		final ICPPASTFunctionCallExpression fcall = (ICPPASTFunctionCallExpression) typeConversion.getParent().getParent();
+		final IBinding ctorSpec = fcall.getImplicitNames()[0].resolveBinding();
+		assertSame(ctor, (((ICPPSpecialization) ctorSpec).getSpecializedBinding()));
+
 		assertSame(add, col.getName(19).resolveBinding());
 	}
 	
@@ -1772,9 +1783,14 @@ public class AST2TemplateTests extends AST2BaseTest {
 		ICPPConstructor ctor = (ICPPConstructor) col.getName(2).resolveBinding();
 		ICPPMethod add = (ICPPMethod) col.getName(7).resolveBinding();
 		
-		ICPPSpecialization spec = (ICPPSpecialization) col.getName(17).resolveBinding();
-		assertSame(spec.getSpecializedBinding(), ctor);
+		final IASTName typeConversion = col.getName(17);
+		ICPPSpecialization spec = (ICPPSpecialization) typeConversion.resolveBinding();
+		assertSame(ctor.getOwner(), spec.getSpecializedBinding());
 		
+		final ICPPASTFunctionCallExpression fcall = (ICPPASTFunctionCallExpression) typeConversion.getParent().getParent();
+		final IBinding ctorSpec = fcall.getImplicitNames()[0].resolveBinding();
+		assertSame(ctor, (((ICPPSpecialization) ctorSpec).getSpecializedBinding()));
+
 		assertSame(add, col.getName(16).resolveBinding());
 	}
 	
@@ -3745,17 +3761,17 @@ public class AST2TemplateTests extends AST2BaseTest {
     //    	~DumbPtr<T> ();
     //    };
     //    template <class T>
-    //    DumbPtr<T>::DumbPtr<T>/**/ (const DumbPtr<T>& aObj) {
+    //    DumbPtr<T>::DumbPtr/**/ (const DumbPtr<T>& aObj) {
     //    }
     //    template <class T>
-    //    DumbPtr<T>::~DumbPtr<T>/**/ () {
+    //    DumbPtr<T>::~DumbPtr/**/ () {
     //    }
     public void testCtorWithTemplateID_259600() throws Exception {
 		final String code = getAboveComment();
 		parseAndCheckBindings(code); 
         BindingAssertionHelper bh= new BindingAssertionHelper(code, true);
-        ICPPConstructor ctor= bh.assertNonProblem("DumbPtr<T>/**/", 10);
-        ICPPMethod dtor= bh.assertNonProblem("~DumbPtr<T>/**/", 11);
+        ICPPConstructor ctor= bh.assertNonProblem("DumbPtr/**/", 7);
+        ICPPMethod dtor= bh.assertNonProblem("~DumbPtr/**/", 8);
     }
     
     //    template <class T> class XT {
@@ -5454,7 +5470,7 @@ public class AST2TemplateTests extends AST2BaseTest {
 	public void testTemplateTemplateParameterMatching_352859() throws Exception {
 		parseAndCheckBindings();
 	}
-	
+
 	//	template<typename T> T f();
 	//	template<> int f() { 
 	//	    return 0;
@@ -5465,5 +5481,161 @@ public class AST2TemplateTests extends AST2BaseTest {
 		ICPPFunctionTemplate template= bh.assertNonProblem("f();", 1);
 		ICPPTemplateInstance inst= bh.assertNonProblem("f() {", 1);
 		assertSame(template, inst.getTemplateDefinition());
+	}
+
+	//	template<typename T1,typename T2> class A{};
+	//	template<typename T1> class A<T1, int>{};
+	//	template<typename T2> class A<int, T2>{};
+	//	template<> class A<int, int>;
+	//  A<int, int> fooA();
+    //
+	//	template<typename T1,typename T2> class B{};
+	//	template<typename T1> class B<T1, int>{};
+	//	template<typename T2> class B<int, T2>{};
+	//	template<> class B<int, int> {};
+	//  A<int, int> fooB();
+	public void testExplicitSpecializationOfForbiddenAsImplicit_356818() throws Exception {
+		parseAndCheckBindings();
+	}
+
+	//	struct A {
+	//		void f() { }
+	//	};
+	//	template <typename T> struct B : A {
+	//		using A::f;
+	//		void f(int) { }
+	//	};
+	//	template <typename T> struct C : B<T> {
+	//		using B<T>::f;
+	//		void f(int, int);
+	//	};
+	//
+	//	void test() {
+	//		B<float> b;
+	//		C<float> c;
+	//		b.f();
+	//		b.f(1);
+	//		c.f();
+	//		c.f(1);
+	//		c.f(1,1);
+	//	}
+	public void testSpecializationOfUsingDeclaration_357293() throws Exception {
+		parseAndCheckBindings();
+	}
+
+	//	template<typename T> struct SS {};
+	//	template<template<typename T, typename S = SS<T> > class Cont> 
+	//   	   Cont<int> f() {}
+	public void testReferenceToParameterOfTemplateTemplateParameter_357308() throws Exception {
+		parseAndCheckBindings();
+	}
+
+	//	template <typename...> void f() {}
+	//	void test() {
+	//	     f();      
+	//	     f<>();    
+	//	}
+	public void testTemplateArgumentDeductionWithoutParameters_358654() throws Exception {
+		parseAndCheckBindings();
+	}
+
+	//	template<bool V, typename T>
+	//	struct C {
+	//	  typedef int s;
+	//	};
+	//
+	//	template<typename T>
+	//	struct C<false, T> {
+	//	  typedef T s;
+	//	};
+	//
+	//	struct B {
+	//	  typedef B u;
+	//	};
+	//
+	//  struct C8 { char c[8]; }; 
+	//
+	//	typedef C<sizeof(char) == sizeof(C8), B> r;
+	//	typedef r::s t;
+	//	t::u x;
+	public void testBoolExpressionAsTemplateArgument_361604() throws Exception {
+		final String code= getAboveComment();
+		parseAndCheckBindings(code);
+	}
+	
+	//	template<typename T> struct B {
+	//		void m();
+	//	};
+	//	template<typename T> struct C : B<T> {
+	//		using B<T*>::m;
+	//		void m();
+	//	};
+	//	template<typename T> void C<T>::m() {}
+	public void testDependentUsingDeclaration() throws Exception {
+		parseAndCheckBindings();
+	}
+	
+	//	template <int> void* foo(int);
+	//	template <typename T> void f(T t) {
+	//	    if (T* i = foo<0>(0))
+	//	        return;
+	//	}
+	public void testDirectlyNestedAmbiguity_362976() throws Exception {
+		parseAndCheckBindings();
+	}
+	
+	//	template<typename T, T p1, T p2, T p3=T(), T p4=T(), T p5=T(),
+	//			T p6=T(),  T p7=T(),  T p8=T(),  T p9=T(),  T p10=T(),
+	//			T p11=T(), T p12=T(), T p13=T(), T p14=T(), T p15=T(),
+	//			T p16=T(), T p17=T(), T p18=T(), T p19=T(), T p20=T()
+	//			>
+	//	struct MaxOfN {
+	//		template<typename X, X x1, X x2> struct Max2 {
+	//			static const X result = (x1>x2)?x1:x2;
+	//		};
+	//		static const T result = Max2<T,(Max2<T,(Max2<T,(Max2<T,(Max2<T,(Max2<T,(Max2<T,(Max2<T,(Max2<T,
+	//				(Max2<T,(Max2<T,(Max2<T,(Max2<T,(Max2<T,(Max2<T,(Max2<T,(Max2<T,(Max2<T,(Max2<T,p1,p2>::result),
+	//						p3>::result),p4>::result),p5>::result),p6>::result),p7>::result),p8>::result),
+	//						p9>::result),p10>::result),p11>::result),p12>::result),p13>::result),p14>::result),
+	//						p15>::result),p16>::result),p17>::result),p18>::result),p19>::result),p20>::result;
+	//	};
+	//	int main(){
+	//		return MaxOfN<int,1,2>::result;
+	//	}
+	public void testNestedTemplateAmbiguity_363609() throws Exception {
+		parseAndCheckBindings();
+	}
+	
+	//	struct A {
+	//	    void m() {}
+	//	};
+	//	template <class T, void (T::*m)() = &T::m> struct B {};
+	//	void test() {
+	//		B<A> b1;
+	//	}
+	public void testDefaultArgForNonTypeTemplateParameter_363743() throws Exception {
+		parseAndCheckBindings();
+	}
+	
+	//	template<class T> struct A {
+	//		bool b;
+	//	};
+	//	class B {
+	//	};
+	//	template<class T> T * func();
+	//	void test1() {
+	//		delete func<A<B>>(); // This line causes the NPE
+	//	}
+	//
+	//	template<bool> struct C {
+	//		int* ptr;
+	//	};
+	//	void test2() {
+	//		int a = 0, b = 1;
+	//		delete C< a<b >::ptr;
+	//		delete C< A<B>::b >::ptr;
+	//	}
+	public void testTemplateAmbiguityInDeleteExpression_364225() throws Exception {
+		parseAndCheckBindings();
 	}
 }

@@ -137,6 +137,8 @@ import org.eclipse.cdt.core.dom.ast.cpp.ICPPFunctionTemplate;
 import org.eclipse.cdt.core.dom.ast.cpp.ICPPFunctionType;
 import org.eclipse.cdt.core.dom.ast.cpp.ICPPMethod;
 import org.eclipse.cdt.core.dom.ast.cpp.ICPPNamespace;
+import org.eclipse.cdt.core.dom.ast.cpp.ICPPNamespaceAlias;
+import org.eclipse.cdt.core.dom.ast.cpp.ICPPNamespaceScope;
 import org.eclipse.cdt.core.dom.ast.cpp.ICPPReferenceType;
 import org.eclipse.cdt.core.dom.ast.cpp.ICPPScope;
 import org.eclipse.cdt.core.dom.ast.cpp.ICPPSpecialization;
@@ -154,6 +156,7 @@ import org.eclipse.cdt.internal.core.dom.parser.ASTQueries;
 import org.eclipse.cdt.internal.core.dom.parser.ProblemBinding;
 import org.eclipse.cdt.internal.core.dom.parser.ProblemType;
 import org.eclipse.cdt.internal.core.dom.parser.Value;
+import org.eclipse.cdt.internal.core.dom.parser.cpp.CPPASTFieldReference;
 import org.eclipse.cdt.internal.core.dom.parser.cpp.CPPASTFunctionCallExpression;
 import org.eclipse.cdt.internal.core.dom.parser.cpp.CPPASTIdExpression;
 import org.eclipse.cdt.internal.core.dom.parser.cpp.CPPASTName;
@@ -195,12 +198,17 @@ import org.eclipse.cdt.internal.core.index.IIndexScope;
  * Collection of methods to extract information from a C++ translation unit.
  */
 public class CPPVisitor extends ASTQueries {
-	public static final char[] SIZE_T = "size_t".toCharArray(); //$NON-NLS-1$
-	public static final char[] PTRDIFF_T = "ptrdiff_t".toCharArray(); //$NON-NLS-1$
-	static final char[] BEGIN = "begin".toCharArray(); //$NON-NLS-1$
-	public static final String STD = "std"; //$NON-NLS-1$
-	public static final String TYPE_INFO= "type_info"; //$NON-NLS-1$
-	private static final String INITIALIZER_LIST = "initializer_list"; //$NON-NLS-1$
+	private static final CPPBasicType UNSIGNED_LONG = new CPPBasicType(Kind.eInt, IBasicType.IS_LONG | IBasicType.IS_UNSIGNED);
+	private static final CPPBasicType INT_TYPE = new CPPBasicType(Kind.eInt, 0);
+
+	private static final String BEGIN_STR = "begin"; //$NON-NLS-1$
+	static final char[] BEGIN = BEGIN_STR.toCharArray(); 
+	static final String STD = "std"; //$NON-NLS-1$
+	private static final char[] SIZE_T = "size_t".toCharArray(); //$NON-NLS-1$
+	private static final char[] PTRDIFF_T = "ptrdiff_t".toCharArray(); //$NON-NLS-1$
+	private static final char[] TYPE_INFO= "type_info".toCharArray(); //$NON-NLS-1$
+	private static final char[] INITIALIZER_LIST = "initializer_list".toCharArray(); //$NON-NLS-1$
+	private static final IASTInitializerClause[] NO_ARGS = {};
 
 	// Thread-local set of DeclSpecifiers for which auto types are being created.
 	// Used to prevent infinite recursion while processing invalid self-referencing
@@ -217,50 +225,31 @@ public class CPPVisitor extends ASTQueries {
 		IASTNode parent = name.getParent();
 		IBinding binding = null;
 		if (parent instanceof IASTNamedTypeSpecifier ||
-			    parent instanceof ICPPASTQualifiedName ||
 				parent instanceof ICPPASTBaseSpecifier ||
 				parent instanceof ICPPASTConstructorChainInitializer ||
 				name.getPropertyInParent() == ICPPASTNamespaceAlias.MAPPING_NAME) {
 		    if (name.getLookupKey().length == 0)
 		    	return null;
-		    
-			binding = CPPSemantics.resolveBinding(name); 
-			if (binding instanceof IProblemBinding && parent instanceof ICPPASTQualifiedName && 
-					!(parent.getParent() instanceof ICPPASTNamespaceAlias)) {
-				final ICPPASTQualifiedName qname = (ICPPASTQualifiedName) parent;
-			    final IASTName[] ns = qname.getNames();
-			    if (ns[ns.length - 1] != name) 
-			    	return binding;
-				
-			    if (ns.length > 1 && ns[ns.length - 2].getBinding() instanceof IProblemBinding)
-			    	return binding;
-			    
-				parent = parent.getParent();
-			    if (((IProblemBinding) binding).getID() == IProblemBinding.SEMANTIC_MEMBER_DECLARATION_NOT_FOUND) {
-					IASTNode node = getContainingBlockItem(name.getParent());
-					ASTNodeProperty prop= node.getPropertyInParent();
-					while (prop == ICPPASTTemplateDeclaration.OWNED_DECLARATION) {
-						node= node.getParent();
-						prop= node.getPropertyInParent();
-					}
-					if (prop != IASTCompositeTypeSpecifier.MEMBER_DECLARATION &&
-							prop != ICPPASTNamespaceDefinition.OWNED_DECLARATION) {
+		  
+			return CPPSemantics.resolveBinding(name); 
+		} else if (parent instanceof ICPPASTQualifiedName) {
+		    if (name.getLookupKey().length == 0)
+		    	return null;
+
+			final ICPPASTQualifiedName qname = (ICPPASTQualifiedName) parent;
+			if (name != qname.getLastName())
+				return CPPSemantics.resolveBinding(name);
+			
+			parent = parent.getParent();
+			if (!declaresMemberInClassOrNamespace(qname)) {
+				binding = CPPSemantics.resolveBinding(name);
+				if (parent instanceof IASTCompositeTypeSpecifier) {
+					if (binding instanceof IIndexBinding) {
+						// Need to create an AST binding
+					} else {
+						ASTInternal.addDefinition(binding, parent);
 						return binding;
 					}
-					IScope scope= getContainingScope(qname);
-					while (scope instanceof ICPPTemplateScope) {
-						try {
-							scope= scope.getParent();
-						} catch (DOMException e) {
-							return binding;
-						}
-					}
-				    if (scope != getContainingScope(name))
-				        return binding;
-				}
-			} else {
-				if (binding instanceof ICPPClassType && binding instanceof IIndexBinding && name.isDefinition()) {
-					parent= parent.getParent(); // need to create an ast binding.
 				} else {
 					return binding;
 				}
@@ -303,6 +292,52 @@ public class CPPVisitor extends ASTQueries {
 		return null;
 	}
 	
+	private static boolean declaresMemberInClassOrNamespace(ICPPASTQualifiedName qname) {
+		IASTName[] names= qname.getNames();
+		if (names.length < 2)
+			return false;
+		
+		IBinding pb= names[names.length-2].resolvePreBinding();
+		if (pb instanceof IProblemBinding) 
+			return false;
+		
+		IScope scope= null;
+		if (pb instanceof IType) {
+			IType t= SemanticUtil.getNestedType((IType) pb, TDEF);
+			if (t instanceof ICPPClassType) {
+				scope= ((ICPPClassType) t).getCompositeScope();
+			}
+		} else if (pb instanceof ICPPNamespace) {
+			scope= ((ICPPNamespace)pb).getNamespaceScope();
+		} 
+		if (scope == null)
+			return false;
+
+		IASTNode parent= qname.getParent();
+		IASTNode decl= null;
+		if (parent instanceof IASTCompositeTypeSpecifier) {
+			decl= parent.getParent();
+		} else if (parent instanceof IASTDeclarator) {
+			decl= ASTQueries.findOutermostDeclarator((IASTDeclarator) parent).getParent();
+		}
+		while (decl != null) {
+			ASTNodeProperty prop = decl.getPropertyInParent();
+			if (prop == IASTCompositeTypeSpecifier.MEMBER_DECLARATION) {
+				return scope == ((ICPPASTCompositeTypeSpecifier) decl.getParent()).getScope();
+			} 
+			if (prop == ICPPASTNamespaceDefinition.OWNED_DECLARATION) {
+				return scope == ((ICPPASTNamespaceDefinition) decl.getParent()).getScope();
+			} 
+			
+			if (prop == ICPPASTTemplateDeclaration.OWNED_DECLARATION) { 
+				decl= decl.getParent();
+			} else {
+				return false;
+			}			
+		} 
+		return false;
+	}
+
 	private static IBinding createBinding(IASTGotoStatement gotoStatement) {
 	    ICPPFunctionScope functionScope = (ICPPFunctionScope) getContainingScope(gotoStatement.getName());
 	    IASTName name = gotoStatement.getName();
@@ -423,12 +458,11 @@ public class CPPVisitor extends ASTQueries {
 	    		(elabType.getName() instanceof ICPPASTQualifiedName || elabType.getKind() == IASTElaboratedTypeSpecifier.k_enum)) {
 	    	return binding;
 	    }
-
+	    
         try {
-        	boolean template = false;
+        	ICPPASTTemplateDeclaration templateDecl = CPPTemplates.getTemplateDeclaration(name);
         	ICPPScope scope = (ICPPScope) getContainingScope(name);
         	while (scope instanceof ICPPTemplateScope) {
-        		template = true;
         		scope= (ICPPScope) scope.getParent();
         	}
 		
@@ -452,21 +486,32 @@ public class CPPVisitor extends ASTQueries {
     				}
     			}
         	}
-            if (!(binding instanceof ICPPInternalBinding) || !(binding instanceof ICPPClassType) && name.isActive()) {
-    			if (elabType.getKind() != IASTElaboratedTypeSpecifier.k_enum) {
-					if (template)
-	            		binding = new CPPClassTemplate(name);
-	            	else
-						binding = new CPPClassType(name, binding);
-					// name may live in a different scope, so make sure to add it to the owner scope, as well.
-    				ASTInternal.addName(scope,  elabType.getName());
-    			}
-    		} else {
-				if ((binding instanceof ICPPClassTemplate) == template) {
-					ASTInternal.addDeclaration(binding, elabType);
-				} else {
-    				binding = new ProblemBinding(name, IProblemBinding.SEMANTIC_INVALID_REDECLARATION);
-    			}
+        	if (binding instanceof ICPPInternalBinding) {
+        		if (!name.isActive())
+        			return binding;
+        		
+        		if (binding instanceof ICPPClassType) {
+        			final ICPPInternalBinding ib = (ICPPInternalBinding) binding;
+        			if (templateParametersMatch((ICPPClassType) binding, templateDecl)) {
+        				ib.addDeclaration(elabType);
+        				return binding;
+        			}
+
+        			if (CPPSemantics.declaredBefore(ib, name, false)) {
+        				return new ProblemBinding(name, IProblemBinding.SEMANTIC_INVALID_REDECLARATION);
+        			}
+        			markRedeclaration(ib);
+        		} 
+        	}
+        	
+        	// Create a binding
+        	if (elabType.getKind() != IASTElaboratedTypeSpecifier.k_enum) {
+        		if (templateDecl != null)
+        			binding = new CPPClassTemplate(name);
+        		else
+        			binding = new CPPClassType(name, binding);
+        		// name may live in a different scope, so make sure to add it to the owner scope, as well.
+        		ASTInternal.addName(scope,  elabType.getName());
     		}
         } catch (DOMException e) {
             binding = e.getProblem();
@@ -475,44 +520,91 @@ public class CPPVisitor extends ASTQueries {
 		return binding;
 	}
 
+	public static void markRedeclaration(final ICPPInternalBinding ib) {
+		// Mark the other declarations as problem and create the binding
+		final IASTNode[] decls = ib.getDeclarations();
+		if (decls != null) {
+			for (IASTNode decl : decls) {
+				if (decl instanceof IASTName) {
+					final IASTName n = (IASTName) decl;
+					n.setBinding(new ProblemBinding(n, IProblemBinding.SEMANTIC_INVALID_REDECLARATION));
+				}
+			}
+		}
+		IASTNode decl= ib.getDefinition();
+		if (decl instanceof IASTName) {
+			final IASTName n = (IASTName) decl;
+			n.setBinding(new ProblemBinding(n, IProblemBinding.SEMANTIC_INVALID_REDEFINITION));
+		}
+	}
+
+	/**
+	 * Tests whether a class binding matches the template parameters of another declaration
+	 */
+	private static boolean templateParametersMatch(ICPPClassType binding,
+			ICPPASTTemplateDeclaration templateDecl) {
+		final boolean isTemplate= binding instanceof ICPPClassTemplate;
+		if (templateDecl == null)
+			return !isTemplate;
+		if (!isTemplate)
+			return false;
+		
+		ICPPTemplateParameter[] pars1 = ((ICPPClassTemplate) binding).getTemplateParameters();
+		ICPPASTTemplateParameter[] pars2 = templateDecl.getTemplateParameters();
+		
+		int i=0;
+		for (ICPPASTTemplateParameter p2 : pars2) {
+			if (i >= pars1.length)
+				return true;
+
+			if (!CPPSemantics.isSameTemplateParameter(pars1[i++], p2))
+				return false;
+		}
+		return true;
+	}
+
 	private static IBinding createBinding(ICPPASTCompositeTypeSpecifier compType) {
 		IASTName name = compType.getName();
 		if (name instanceof ICPPASTQualifiedName) {
 			IASTName[] ns = ((ICPPASTQualifiedName) name).getNames();
 			name = ns[ns.length - 1];
 		}
-
-    	IBinding binding = null;
+		if (name instanceof ICPPASTTemplateId) 
+			return CPPTemplates.createBinding((ICPPASTTemplateId) name);
+		
     	ICPPScope scope = (ICPPScope) getContainingScope(name);
-        try {
-        	boolean template = false;
+		try {
         	while (scope instanceof ICPPTemplateScope) {
-        		template = true;
         		scope= (ICPPScope) scope.getParent();
         	}
-    		if (name instanceof ICPPASTTemplateId) {
-    			return CPPTemplates.createBinding((ICPPASTTemplateId) name);
-    		} 
-        	if (name.getLookupKey().length > 0 && scope != null) // can't lookup anonymous things
-        		binding = scope.getBinding(name, false);
-            if (binding instanceof ICPPInternalBinding && binding instanceof ICPPClassType && name.isActive()) {
-            	ICPPInternalBinding internal = (ICPPInternalBinding) binding;
-				if (internal.getDefinition() == null && (binding instanceof ICPPClassTemplate) == template) {
-            		ASTInternal.addDefinition(internal, compType);
-            	} else {
-            		binding = new ProblemBinding(name, IProblemBinding.SEMANTIC_INVALID_REDEFINITION);
-            	}
-    		} else {
-    			if (template) {
-    				binding = new CPPClassTemplate(name);
-    			} else {
-    				binding = new CPPClassType(name, binding);
-    			}
-    		}
         } catch (DOMException e) {
-            binding = e.getProblem();
+            return e.getProblem();
         }
-		return binding;
+		
+    		// Can't lookup anonymous names
+		IBinding binding= null;
+		ICPPASTTemplateDeclaration templateDecl = CPPTemplates.getTemplateDeclaration(name);
+		if (name.getLookupKey().length > 0 && scope != null) { 
+			binding = scope.getBinding(name, false);
+
+			if (binding instanceof ICPPInternalBinding 
+					&& binding instanceof ICPPClassType && name.isActive()) {
+				ICPPInternalBinding ib = (ICPPInternalBinding) binding;
+				if (ib.getDefinition() == null 
+						&& templateParametersMatch((ICPPClassType) binding, templateDecl)) {
+					ASTInternal.addDefinition(ib, compType);
+					return binding;
+				} 
+				if (CPPSemantics.declaredBefore(ib, name, false)) {
+					return new ProblemBinding(name, IProblemBinding.SEMANTIC_INVALID_REDEFINITION);
+				}
+				markRedeclaration(ib);
+			}
+		}
+		if (templateDecl != null) 
+			return new CPPClassTemplate(name);
+
+		return  new CPPClassType(name, binding);
 	}
 	
 	private static IBinding createBinding(IASTDeclaration declaration) {
@@ -760,21 +852,12 @@ public class CPPVisitor extends ASTQueries {
 	}
 
 	public static boolean isConstructor(IScope containingScope, IASTDeclarator declarator) {
-	    if (containingScope == null || !(containingScope instanceof ICPPClassScope))
-	        return false;
-	    
-        IASTNode node = ASTInternal.getPhysicalNodeOfScope(containingScope);
-		if (!(node instanceof ICPPASTCompositeTypeSpecifier)) {
-			return false;
+		if (containingScope instanceof ICPPClassScope && isConstructorDtor(declarator)) {
+			ICPPClassType classType= ((ICPPClassScope) containingScope).getClassType();
+		    final char[] dtorName = findInnermostDeclarator(declarator).getName().getLookupKey();
+			return CharArrayUtils.equals(dtorName, classType.getNameCharArray());
 		}
-
-		ICPPASTCompositeTypeSpecifier clsTypeSpec = (ICPPASTCompositeTypeSpecifier) node;
-        IASTName clsName = clsTypeSpec.getName();
-        if (clsName instanceof ICPPASTQualifiedName) {
-	        IASTName[] names = ((ICPPASTQualifiedName) clsName).getNames(); 
-	        clsName = names[names.length - 1];
-	    }
-        return isConstructor(clsName, declarator);
+		return false;
 	}
 
 	public static boolean isConstructorDeclaration(IASTName name) {
@@ -795,35 +878,39 @@ public class CPPVisitor extends ASTQueries {
 			parent= name.getParent();
 		}
 		if (parent instanceof IASTDeclarator) {
-			IASTDeclarator dtor= findTypeRelevantDeclarator((IASTDeclarator) parent);
-			if (dtor instanceof ICPPASTFunctionDeclarator) {
+			if (isConstructorDtor((IASTDeclarator) parent)) {
 				if (name instanceof ICPPASTQualifiedName) {
 					IASTName[] names = ((ICPPASTQualifiedName) name).getNames();
 					if (names.length >= 2) {
-						return CPPVisitor.isConstructor(names[names.length - 2], dtor);
+						IBinding b= names[names.length-2].resolvePreBinding();
+						if (b instanceof IType) {
+							IType classType= getNestedType((IType) b, TDEF);
+							if (classType instanceof ICPPClassType) {
+							    final char[] dtorName = names[names.length-1].getLookupKey();
+								final char[] className = ((ICPPClassType) classType).getNameCharArray();
+								return CharArrayUtils.equals(dtorName, className);
+							}
+						}
 					}
-				} else {
-					while (parent != null && !(parent instanceof ICPPASTCompositeTypeSpecifier)) {
-						parent= parent.getParent();
-					}
+					return false;
+				}			
+				while (parent != null) {
 					if (parent instanceof ICPPASTCompositeTypeSpecifier) {
-						IASTName compName= ((ICPPASTCompositeTypeSpecifier) parent).getName().getLastName();
-						return CPPVisitor.isConstructor(compName, dtor);
+						final char[] className= ((ICPPASTCompositeTypeSpecifier) parent).getName().getLastName().getLookupKey();
+					    final char[] dtorName = name.getLookupKey();
+						return CharArrayUtils.equals(dtorName, className);
 					}
+					parent= parent.getParent();
 				}
 			}
 		}
 		return false;
 	}
 	
-	public static boolean isConstructor(IASTName parentName, IASTDeclarator declarator) {
+	private static boolean isConstructorDtor(IASTDeclarator declarator) {
 		if (declarator == null || !(declarator instanceof IASTFunctionDeclarator))
 			return false;
         
-	    IASTName name = findInnermostDeclarator(declarator).getName();
-	    if (!CharArrayUtils.equals(name.getLookupKey(), parentName.getLookupKey()))
-	        return false;
-	    
 	    IASTDeclSpecifier declSpec = null;
 	    IASTNode parent = findOutermostDeclarator(declarator).getParent();
 	    if (parent instanceof IASTSimpleDeclaration) {
@@ -836,7 +923,6 @@ public class CPPVisitor extends ASTQueries {
 	    }
 	    
 	    return false;
-	    
 	}
 	
 	public static IScope getContainingNonTemplateScope(final IASTNode inputNode) {
@@ -903,7 +989,7 @@ public class CPPVisitor extends ASTQueries {
 					if (result != null)
 						return result;
 			    } else if (parent instanceof ICPPASTTemplateDeclaration) {
-			    	return CPPTemplates.getContainingScope(node);
+			    	return ((ICPPASTTemplateDeclaration) parent).getScope();
 			    }
 			} else if (node instanceof IASTInitializer) {
 				if (node instanceof ICPPASTConstructorChainInitializer) {
@@ -974,7 +1060,13 @@ public class CPPVisitor extends ASTQueries {
 					continue;
 			    }
 		    } else if (node instanceof ICPPASTTemplateParameter) {
-		    	return CPPTemplates.getContainingScope(node);
+		    	if (node instanceof ICPPASTTemplatedTypeTemplateParameter && node != inputNode) {
+		    		return ((ICPPASTTemplatedTypeTemplateParameter) node).asScope();
+		    	}
+		    	IASTNode parent = node.getParent();
+		    	if (parent instanceof ICPPASTTemplateDeclaration) {
+		    		return ((ICPPASTTemplateDeclaration) parent).getScope();
+		    	}
 		    } else if (node instanceof ICPPASTBaseSpecifier) {
 	    	    ICPPASTCompositeTypeSpecifier compSpec = (ICPPASTCompositeTypeSpecifier) node.getParent();
 	    	    IASTName n = compSpec.getName();
@@ -1025,21 +1117,7 @@ public class CPPVisitor extends ASTQueries {
 		}
 		return null;
 	}
-	
-	/**
-	 * Returns enclosing function definition, or <code>null</code> if the given node
-	 * is not part of a function definition.
-	 */
-	public static ICPPASTFunctionDefinition findEnclosingFunctionDefinition(IASTNode node) {
-		while (node != null) {
-			if (node instanceof ICPPASTFunctionDefinition) {
-				return (ICPPASTFunctionDefinition) node;
-			}
-			node= node.getParent();
-		}
-		return null;
-	}
-	
+		
 	public static IScope getContainingScope(IASTName name) {
 		return getContainingScope(name, null);
 	}
@@ -1796,56 +1874,9 @@ public class CPPVisitor extends ASTQueries {
 
 		if (declSpec instanceof ICPPASTSimpleDeclSpecifier &&
 				((ICPPASTSimpleDeclSpecifier) declSpec).getType() == IASTSimpleDeclSpecifier.t_auto) {
-			if (declarator instanceof ICPPASTFunctionDeclarator) {
-				return createAutoFunctionType(declSpec, (ICPPASTFunctionDeclarator) declarator);
-			}
-			IASTInitializerClause autoInitClause= null;
-			parent = parent.getParent();
-			if (parent instanceof ICPPASTNewExpression) {
-				IASTInitializer initializer = ((ICPPASTNewExpression) parent).getInitializer();
-				if (initializer != null) {
-					IASTInitializerClause[] arguments = ((ICPPASTConstructorInitializer) initializer).getArguments();
-					if (arguments.length == 1) {
-						autoInitClause = arguments[0];
-					} 
-				}
-			} else if (parent instanceof ICPPASTRangeBasedForStatement) {
-				ICPPASTRangeBasedForStatement forStmt= (ICPPASTRangeBasedForStatement) parent;
-				IASTInitializerClause forInit = forStmt.getInitializerClause();
-				IASTExpression beginExpr= null;
-				if (forInit instanceof IASTExpression) {
-					final IASTExpression expr = (IASTExpression) forInit;
-					IType type= expr.getExpressionType();
-					if (type instanceof IArrayType) {
-						beginExpr= expr.copy();
-					}
-				}
-				if (beginExpr == null) {
-					final CPPASTName name = new CPPASTName(BEGIN);
-					name.setOffset(((ASTNode) forInit).getOffset());
-					beginExpr= new CPPASTFunctionCallExpression(
-							new CPPASTIdExpression(name),
-							new IASTInitializerClause[] {forInit.copy()});
-				}
-				autoInitClause= new CPPASTUnaryExpression(IASTUnaryExpression.op_star, beginExpr);
-				autoInitClause.setParent(forStmt);
-				autoInitClause.setPropertyInParent(ICPPASTRangeBasedForStatement.INITIALIZER);
-			} else if (parent instanceof IASTCompositeTypeSpecifier &&
-					declSpec.getStorageClass() != IASTDeclSpecifier.sc_static) {
-				// Non-static auto-typed class members are not allowed.
-				return new ProblemType(ISemanticProblem.TYPE_AUTO_FOR_NON_STATIC_FIELD);
-			} else {
-				IASTInitializer initClause= declarator.getInitializer();
-				if (initClause instanceof IASTEqualsInitializer) {
-					autoInitClause= ((IASTEqualsInitializer) initClause).getInitializerClause();
-				} else if (initClause instanceof IASTInitializerClause) {
-					autoInitClause= (IASTInitializerClause) initClause;
-				}
-			}
-			return createAutoType(autoInitClause, declSpec, declarator);
+			return createAutoType(declSpec, declarator);
 		}
 		
-
 		IType type = createType(declSpec);
 		type = createType(type, declarator);
 
@@ -1870,6 +1901,65 @@ public class CPPVisitor extends ASTQueries {
 		return type;
 	}
 
+	private static IType createAutoType(IASTDeclSpecifier declSpec, IASTDeclarator declarator) {
+		if (declarator instanceof ICPPASTFunctionDeclarator) {
+			return createAutoFunctionType(declSpec, (ICPPASTFunctionDeclarator) declarator);
+		}
+		IASTInitializerClause autoInitClause= null;
+		IASTNode parent = declarator.getParent().getParent();
+		if (parent instanceof ICPPASTNewExpression) {
+			IASTInitializer initializer = ((ICPPASTNewExpression) parent).getInitializer();
+			if (initializer != null) {
+				IASTInitializerClause[] arguments = ((ICPPASTConstructorInitializer) initializer).getArguments();
+				if (arguments.length == 1) {
+					autoInitClause = arguments[0];
+				} 
+			}
+		} else if (parent instanceof ICPPASTRangeBasedForStatement) {
+			// See 6.5.4 The range-based for statement [stmt.ranged]
+			ICPPASTRangeBasedForStatement forStmt= (ICPPASTRangeBasedForStatement) parent;
+			IASTInitializerClause forInit = forStmt.getInitializerClause();
+			IASTExpression beginExpr= null;
+			if (forInit instanceof IASTExpression) {
+				final IASTExpression expr = (IASTExpression) forInit;
+				IType type= SemanticUtil.getNestedType(expr.getExpressionType(), TDEF|CVTYPE);
+				if (type instanceof IArrayType) {
+					beginExpr= expr.copy();
+				} else if (type instanceof ICPPClassType) {
+					ICPPClassType ct= (ICPPClassType) type;
+					if (ct.getCompositeScope().find(BEGIN_STR).length > 0) {
+						final CPPASTName name = new CPPASTName(BEGIN);
+						name.setOffset(((ASTNode) forInit).getOffset());
+						beginExpr= new CPPASTFunctionCallExpression(
+								new CPPASTFieldReference(name, expr.copy()), NO_ARGS);
+					}
+				}
+			}
+			if (beginExpr == null) {
+				final CPPASTName name = new CPPASTName(BEGIN);
+				name.setOffset(((ASTNode) forInit).getOffset());
+				beginExpr= new CPPASTFunctionCallExpression(
+						new CPPASTIdExpression(name),
+						new IASTInitializerClause[] { forInit.copy() });
+			}
+			autoInitClause= new CPPASTUnaryExpression(IASTUnaryExpression.op_star, beginExpr);
+			autoInitClause.setParent(forStmt);
+			autoInitClause.setPropertyInParent(ICPPASTRangeBasedForStatement.INITIALIZER);
+		} else if (parent instanceof IASTCompositeTypeSpecifier &&
+				declSpec.getStorageClass() != IASTDeclSpecifier.sc_static) {
+			// Non-static auto-typed class members are not allowed.
+			return new ProblemType(ISemanticProblem.TYPE_AUTO_FOR_NON_STATIC_FIELD);
+		} else {
+			IASTInitializer initClause= declarator.getInitializer();
+			if (initClause instanceof IASTEqualsInitializer) {
+				autoInitClause= ((IASTEqualsInitializer) initClause).getInitializerClause();
+			} else if (initClause instanceof IASTInitializerClause) {
+				autoInitClause= (IASTInitializerClause) initClause;
+			}
+		}
+		return createAutoType(autoInitClause, declSpec, declarator);
+	}
+
 	private static IType createAutoType(IASTInitializerClause initClause, IASTDeclSpecifier declSpec, IASTDeclarator declarator) {
 		//  C++0x: 7.1.6.4
 		if (initClause == null || !autoTypeDeclSpecs.get().add(declSpec)) {
@@ -1888,7 +1978,7 @@ public class CPPVisitor extends ASTQueries {
 					return new ProblemType(ISemanticProblem.TYPE_CANNOT_DEDUCE_AUTO_TYPE);
 				}
 				type = (IType) CPPTemplates.instantiate(initializer_list_template,
-						new ICPPTemplateArgument[] { new CPPTemplateArgument(type) }, true);
+						new ICPPTemplateArgument[] { new CPPTemplateArgument(type) });
 				if (type instanceof IProblemBinding) {
 					return new ProblemType(ISemanticProblem.TYPE_CANNOT_DEDUCE_AUTO_TYPE);
 				}
@@ -1919,7 +2009,7 @@ public class CPPVisitor extends ASTQueries {
 		type = argument.getTypeValue();
 		if (initClause instanceof ICPPASTInitializerList) {
 			type = (IType) CPPTemplates.instantiate(initializer_list_template,
-					new ICPPTemplateArgument[] { new CPPTemplateArgument(type) }, true);
+					new ICPPTemplateArgument[] { new CPPTemplateArgument(type) });
 		}
 		return decorateType(type, declSpec, declarator);
 	}
@@ -2091,57 +2181,42 @@ public class CPPVisitor extends ASTQueries {
 	}
 	
 	public static IType getPointerDiffType(final IASTBinaryExpression binary) {
-		CPPBasicType basicType;
-		IScope scope = getContainingScope(binary);
-		IBinding[] bs= CPPSemantics.findBindings(scope, PTRDIFF_T, false, binary);
-		if (bs.length > 0) {
-			for (IBinding b : bs) {
-				if (b instanceof IType && CPPSemantics.declaredBefore(b, binary, false)) {
-					return (IType) b;
-				}
-			}
-		}
-		basicType= new CPPBasicType(Kind.eInt, 0);
-		basicType.setFromExpression(binary);
-		return basicType;
+		IType t= getStdType(binary, PTRDIFF_T);
+		return t != null ? t : INT_TYPE;
 	}
 
-	public static IType get_type_info(IASTExpression expression) {
-		IBinding[] std= expression.getTranslationUnit().getScope().find(STD);
-		for (IBinding binding : std) {
-			if (binding instanceof ICPPNamespace) {
-				IBinding[] typeInfo= ((ICPPNamespace) binding).getNamespaceScope().find(TYPE_INFO);
-				for (IBinding t : typeInfo) {
-					if (t instanceof ICPPClassType) {
-						return (ICPPClassType) t;
-					}
-				}
-			}
-		}
-		return new CPPBasicType(Kind.eInt, 0);
-	}
-
-	public static IType get_SIZE_T(IASTNode sizeofExpr) {
-		IScope scope = getContainingScope(sizeofExpr);
-		IBinding[] bs = CPPSemantics.findBindings(scope, SIZE_T, false, sizeofExpr);
-		if (bs.length > 0 && bs[0] instanceof IType) {
-			return (IType) bs[0];
-		}
-		return new CPPBasicType(Kind.eInt, IBasicType.IS_LONG | IBasicType.IS_UNSIGNED);
-	}
-
-	public static ICPPClassTemplate get_initializer_list(IASTNode node) {
+	private static IType getStdType(final IASTNode node, char[] name) {
 		IBinding[] std= node.getTranslationUnit().getScope().find(STD);
 		for (IBinding binding : std) {
 			if (binding instanceof ICPPNamespace) {
-				IBinding[] initializer_list= ((ICPPNamespace) binding).getNamespaceScope().find(INITIALIZER_LIST);
-				for (IBinding t : initializer_list) {
-					if (t instanceof ICPPClassTemplate) {
-						return (ICPPClassTemplate) t;
+				final ICPPNamespaceScope scope = ((ICPPNamespace) binding).getNamespaceScope();
+				IBinding[] bs= CPPSemantics.findBindings(scope, name, false, node);
+				if (bs.length > 0) {
+					for (IBinding b : bs) {
+						if (b instanceof IType && CPPSemantics.declaredBefore(b, node, false)) {
+							return (IType) b;
+						}
 					}
 				}
 			}
 		}
+		return null;
+	}
+
+	public static IType get_type_info(IASTExpression expression) {
+		IType t= getStdType(expression, TYPE_INFO);
+		return t != null ? t : INT_TYPE;
+	}
+
+	public static IType get_SIZE_T(IASTNode sizeofExpr) {
+		IType t= getStdType(sizeofExpr, SIZE_T);
+		return t != null ? t : UNSIGNED_LONG;
+	}
+
+	public static ICPPClassTemplate get_initializer_list(IASTNode node) {
+		IType t= getStdType(node, INITIALIZER_LIST);
+		if (t instanceof ICPPClassTemplate)
+			return (ICPPClassTemplate) t;
 		return null;
 	}
 
@@ -2318,7 +2393,7 @@ public class CPPVisitor extends ASTQueries {
 	}
 
 	public static IBinding findNameOwner(IASTName name, boolean allowFunction) {
-		IASTNode node= name;
+		IASTNode node= name.getLastName();
 		while (node instanceof IASTName) {
 			if (node instanceof ICPPASTQualifiedName) {
 				IASTName[] qn= ((ICPPASTQualifiedName) node).getNames();
@@ -2330,12 +2405,26 @@ public class CPPVisitor extends ASTQueries {
 				}
 				if (--i < 0) 
 					break;
-				return qn[i].resolveBinding();
+				return bindingToOwner(qn[i].resolveBinding());
 			}
 			name= (IASTName) node;
 			node= node.getParent();
 		}
 		return findDeclarationOwner(node, allowFunction);
+	}
+
+	private static IBinding bindingToOwner(IBinding b) {
+		if (b instanceof ITypedef) {
+			IType t= SemanticUtil.getNestedType((IType) b, TDEF);
+			if (t instanceof IBinding) 
+				return (IBinding) t;
+			
+			return b;
+		}
+		while (b instanceof ICPPNamespaceAlias) {
+			b= ((ICPPNamespaceAlias) b).getBinding();
+		}
+		return b;
 	}
 
 	/**

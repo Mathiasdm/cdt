@@ -138,7 +138,13 @@ public class AST2Tests extends AST2BaseTest {
 	public AST2Tests(String name) {
 		super(name);
 	}
-	
+
+	private void parseAndCheckBindings() throws Exception {
+		String code= getAboveComment();
+		parseAndCheckBindings(code, ParserLanguage.C);
+		parseAndCheckBindings(code, ParserLanguage.CPP);
+	}
+
 	protected IASTTranslationUnit parseAndCheckBindings(String code) throws Exception {
 		return parseAndCheckBindings(code, ParserLanguage.C);
 	}
@@ -7337,4 +7343,48 @@ public class AST2Tests extends AST2BaseTest {
 		assertFalse(((IASTPreprocessorIfdefStatement) stmts[0]).taken());
 		assertFalse(((IASTPreprocessorIfdefStatement) stmts[1]).taken());
 	}	
+	
+	
+	//	void a() {
+	//	    typedef float size_t;
+	//	    sizeof(10); // wrong - getExpressionType returns float
+	//	    sizeof(int); // wrong - getExpressionType returns float
+	//	}
+	public void testTypeOfSizeof_Bug355052() throws Exception {
+		final String code = getAboveComment();
+		IASTTranslationUnit tu= parseAndCheckBindings(code, ParserLanguage.CPP);
+		IASTFunctionDefinition a= getDeclaration(tu, 0);
+		IASTExpressionStatement es= getStatement(a, 1);
+		assertEquals("unsigned long int", ASTTypeUtil.getType(es.getExpression().getExpressionType()));
+		es= getStatement(a, 2);
+		assertEquals("unsigned long int", ASTTypeUtil.getType(es.getExpression().getExpressionType()));
+
+		tu= parseAndCheckBindings(code, ParserLanguage.C);
+		a= getDeclaration(tu, 0);
+		es= getStatement(a, 1);
+		assertEquals("unsigned long int", ASTTypeUtil.getType(es.getExpression().getExpressionType()));
+		es= getStatement(a, 2);
+		assertEquals("unsigned long int", ASTTypeUtil.getType(es.getExpression().getExpressionType()));
+	}
+	
+	//	void foo(){
+	//	    typedef int foobar_t;
+	//	    foobar_t *a = 0, *b = a;
+	//	}
+	public void testAmbiguousStatement_Bug360541() throws Exception {
+		parseAndCheckBindings();
+	}		
+		
+	// typedef int T[sizeof(int)];
+	public void testSizeofExpression_Bug362464() throws Exception {
+		String code= getAboveComment();
+		for (ParserLanguage l : ParserLanguage.values()) {
+			IASTTranslationUnit tu= parseAndCheckBindings(code, l);
+			IASTSimpleDeclaration sdecl= getDeclaration(tu, 0);
+			ITypedef tdef= (ITypedef) sdecl.getDeclarators()[0].getName().resolveBinding();
+			IArrayType at= (IArrayType) tdef.getType();
+			IValue v= at.getSize();
+			assertTrue(v.numericalValue() == 4);
+		}
+	}		
 }

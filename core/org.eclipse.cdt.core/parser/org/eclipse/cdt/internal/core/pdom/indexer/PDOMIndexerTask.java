@@ -11,41 +11,32 @@
  *******************************************************************************/
 package org.eclipse.cdt.internal.core.pdom.indexer;
 
+import java.util.Arrays;
 import java.util.Calendar;
-import java.util.LinkedHashSet;
-import java.util.Map;
-
-import com.ibm.icu.text.NumberFormat;
+import java.util.Comparator;
+import java.util.HashSet;
 
 import org.eclipse.cdt.core.CCorePlugin;
-import org.eclipse.cdt.core.dom.ILinkage;
 import org.eclipse.cdt.core.dom.IPDOMIndexer;
 import org.eclipse.cdt.core.dom.IPDOMIndexerTask;
 import org.eclipse.cdt.core.index.IIndexManager;
-import org.eclipse.cdt.core.model.AbstractLanguage;
 import org.eclipse.cdt.core.model.ICProject;
-import org.eclipse.cdt.core.model.ILanguage;
 import org.eclipse.cdt.core.model.ITranslationUnit;
-import org.eclipse.cdt.core.model.LanguageManager;
-import org.eclipse.cdt.core.parser.IScannerInfo;
-import org.eclipse.cdt.core.parser.IScannerInfoProvider;
-import org.eclipse.cdt.core.parser.ScannerInfo;
 import org.eclipse.cdt.internal.core.index.IWritableIndex;
 import org.eclipse.cdt.internal.core.index.IWritableIndexManager;
 import org.eclipse.cdt.internal.core.pdom.AbstractIndexerTask;
 import org.eclipse.cdt.internal.core.pdom.ITodoTaskUpdater;
 import org.eclipse.cdt.internal.core.pdom.IndexerProgress;
 import org.eclipse.cdt.internal.core.pdom.db.ChunkCache;
-import org.eclipse.core.resources.IFile;
-import org.eclipse.core.resources.IProject;
+import org.eclipse.core.resources.IResource;
 import org.eclipse.core.runtime.CoreException;
-import org.eclipse.core.runtime.IPath;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Platform;
 import org.eclipse.core.runtime.Status;
-import org.eclipse.core.runtime.content.IContentType;
 import org.eclipse.osgi.util.NLS;
+
+import com.ibm.icu.text.NumberFormat;
 
 /**
  * Configures the abstract indexer task suitable for indexing projects.
@@ -104,24 +95,43 @@ public abstract class PDOMIndexerTask extends AbstractIndexerTask implements IPD
 	}
 	
 	private static ITranslationUnit[] concat(ITranslationUnit[] added, ITranslationUnit[] changed) {
-		LinkedHashSet<ITranslationUnit> union = new LinkedHashSet<ITranslationUnit>(added.length + changed.length);
-		for (ITranslationUnit tu : added) {
-			union.add(tu);
-		}
-		for (ITranslationUnit tu : changed) {
-			union.add(tu);
-		}
-		return union.toArray(new ITranslationUnit[union.size()]);
+		HashSet<ITranslationUnit> union = new HashSet<ITranslationUnit>(added.length + changed.length);
+		union.addAll(Arrays.asList(added));
+		union.addAll(Arrays.asList(changed));
+		final ITranslationUnit[] result = union.toArray(new ITranslationUnit[union.size()]);
+		Arrays.sort(result, new Comparator<ITranslationUnit>() {
+			@Override
+			public int compare(ITranslationUnit o1, ITranslationUnit o2) {
+				IResource res1= o1.getResource();
+				IResource res2= o2.getResource();
+				if (res1 != null && res2 != null) {
+					return compare(res1.getFullPath().segments(), res2.getFullPath().segments());
+				}
+				return res1 != null ? -1 : res2 != null ? 1 : 0;
+			}
+
+			private int compare(String[] s1, String[] s2) {
+				int max= Math.min(s1.length, s2.length) - 1;
+				for (int i = 0; i < max; i++) {
+					int cmp= s1[i].compareTo(s2[i]);
+					if (cmp != 0)
+						return cmp;
+				}
+				int cmp = s1.length-s2.length;
+				if (cmp != 0)
+					return cmp;
+				return s1[max].compareTo(s2[max]);
+			}
+		});
+		return result;
 	}
 	
-	public final void setParseUpFront() {
-		setParseUpFront(fIndexer.getFilesToParseUpFront());
-	}
-
+	@Override
 	public final IPDOMIndexer getIndexer() {
 		return fIndexer;
 	}
 	
+	@Override
 	public final void run(IProgressMonitor monitor) throws InterruptedException {
 		long start = System.currentTimeMillis();
 		runTask(monitor);
@@ -152,58 +162,6 @@ public abstract class PDOMIndexerTask extends AbstractIndexerTask implements IPD
 			}
 		}
 		return defaultValue;
-	}
-
-	@Override
-	protected String getASTPathForParsingUpFront() {
-		final IProject project = getProject().getProject();
-		final IPath prjLocation= project.getLocation();
-		if (prjLocation == null) {
-			return null;
-		}
-		return prjLocation.append(super.getASTPathForParsingUpFront()).toString();
-	}
-
-	@Override
-	protected AbstractLanguage[] getLanguages(String filename) {
-		IContentType ct= CCorePlugin.getContentType(getProject().getProject(), filename);
-		if (ct != null) {
-			ILanguage l = LanguageManager.getInstance().getLanguage(ct);
-			if (l instanceof AbstractLanguage) {
-				if (filename.indexOf('.') >= 0 && ct.getId().equals(CCorePlugin.CONTENT_TYPE_CXXHEADER) &&
-						l.getLinkageID() == ILinkage.CPP_LINKAGE_ID) {
-					ILanguage l2= LanguageManager.getInstance().getLanguageForContentTypeID(CCorePlugin.CONTENT_TYPE_CHEADER);
-					if (l2 instanceof AbstractLanguage) {
-						return new AbstractLanguage[] {(AbstractLanguage) l, (AbstractLanguage) l2};
-					}
-				}
-				return new AbstractLanguage[] {(AbstractLanguage) l};
-			}
-		}
-		return new AbstractLanguage[0];
-	}
-
-	@Override
-	protected IScannerInfo createDefaultScannerConfig(int linkageID) {
-		IProject project= getProject().getProject();
-		IScannerInfoProvider provider= CCorePlugin.getDefault().getScannerInfoProvider(project);
-		IScannerInfo scanInfo;
-		if (provider != null) {
-			String filename= linkageID == ILinkage.C_LINKAGE_ID ? "__cdt__.c" : "__cdt__.cpp";  //$NON-NLS-1$//$NON-NLS-2$
-			IFile file= project.getFile(filename);
-			scanInfo= provider.getScannerInformation(file);
-			if (scanInfo == null || scanInfo.getDefinedSymbols().isEmpty()) {
-				scanInfo= provider.getScannerInformation(project);
-			}
-			if (linkageID == ILinkage.C_LINKAGE_ID) {
-				final Map<String, String> definedSymbols = scanInfo.getDefinedSymbols();
-				definedSymbols.remove("__cplusplus__"); //$NON-NLS-1$
-				definedSymbols.remove("__cplusplus"); //$NON-NLS-1$
-			}
-		} else {
-			scanInfo= new ScannerInfo();
-		}
-		return scanInfo;
 	}
 
 	private ICProject getProject() {

@@ -16,6 +16,7 @@ import org.eclipse.cdt.core.dom.IName;
 import org.eclipse.cdt.core.index.IIndex;
 import org.eclipse.cdt.core.index.IIndexFileSet;
 import org.eclipse.cdt.core.model.ITranslationUnit;
+import org.eclipse.cdt.core.parser.ISignificantMacros;
 import org.eclipse.cdt.core.parser.ParserLanguage;
 import org.eclipse.core.runtime.IAdaptable;
 
@@ -28,7 +29,7 @@ import org.eclipse.core.runtime.IAdaptable;
  * @noextend This interface is not intended to be extended by clients.
  * @noimplement This interface is not intended to be implemented by clients.
  */
-public interface IASTTranslationUnit extends IASTDeclarationListOwner, IAdaptable {
+public interface IASTTranslationUnit extends IASTDeclarationListOwner, IFileNomination, IAdaptable {
 
 	/**
 	 * <code>OWNED_DECLARATION</code> represents the relationship between an <code>IASTTranslationUnit</code> and
@@ -63,6 +64,7 @@ public interface IASTTranslationUnit extends IASTDeclarationListOwner, IAdaptabl
 	 * 
 	 * @param declaration <code>IASTDeclaration</code>
 	 */
+	@Override
 	public void addDeclaration(IASTDeclaration declaration);
 
 	/**
@@ -323,6 +325,7 @@ public interface IASTTranslationUnit extends IASTDeclarationListOwner, IAdaptabl
 	 * @noreference This method is not intended to be referenced by clients.
 	 * @since 5.1
 	 */
+	@Override
 	public IASTTranslationUnit copy();
 
 	/**
@@ -334,6 +337,7 @@ public interface IASTTranslationUnit extends IASTDeclarationListOwner, IAdaptabl
 	 * @noreference This method is not intended to be referenced by clients.
 	 * @since 5.3
 	 */
+	@Override
 	public IASTTranslationUnit copy(CopyStyle style);
 
 	/**
@@ -343,4 +347,16 @@ public interface IASTTranslationUnit extends IASTDeclarationListOwner, IAdaptabl
 	 * @since 5.3
 	 */
 	public ITranslationUnit getOriginatingTranslationUnit();
+	
+	/**
+	 * @since 5.4
+	 * @noreference This method is not intended to be referenced by clients.
+	 */
+	public void setSignificantMacros(ISignificantMacros sigMacros);
+
+	/**
+	 * @since 5.4
+	 * @noreference This method is not intended to be referenced by clients.
+	 */
+	public void setPragmaOnceSemantics(boolean value);
 }

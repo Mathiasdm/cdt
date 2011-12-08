@@ -6,10 +6,10 @@
  * http://www.eclipse.org/legal/epl-v10.html
  *
  * Contributors:
- *    Andrew Ferguson (Symbian) - initial API and implementation
- *    Markus Schorn (Wind River Systems)
- *    Sergey Prigogin (Google)
- *    Jens Elmenthaler - http://bugs.eclipse.org/173458 (camel case completion)
+ *     Andrew Ferguson (Symbian) - initial API and implementation
+ *     Markus Schorn (Wind River Systems)
+ *     Sergey Prigogin (Google)
+ *     Jens Elmenthaler - http://bugs.eclipse.org/173458 (camel case completion)
  *******************************************************************************/
 package org.eclipse.cdt.internal.index.tests;
 
@@ -21,6 +21,7 @@ import org.eclipse.cdt.core.index.IIndexFileLocation;
 import org.eclipse.cdt.core.index.IIndexLinkage;
 import org.eclipse.cdt.core.index.IIndexMacro;
 import org.eclipse.cdt.core.index.IndexFilter;
+import org.eclipse.cdt.core.parser.ISignificantMacros;
 import org.eclipse.cdt.internal.core.index.IIndexFragment;
 import org.eclipse.cdt.internal.core.index.IIndexFragmentBinding;
 import org.eclipse.cdt.internal.core.index.IIndexFragmentFile;
@@ -74,7 +75,7 @@ public class EmptyIndexFragment implements IIndexFragment {
 	throws CoreException {
 		return IIndexFragmentBinding.EMPTY_INDEX_BINDING_ARRAY;
 	}
-	
+
 	public IIndexMacro[] findMacros(char[] name, boolean isPrefix, boolean caseSensitive, IndexFilter filter, IProgressMonitor monitor) {
 		return IIndexMacro.EMPTY_INDEX_MACRO_ARRAY;
 	}
@@ -100,14 +101,24 @@ public class EmptyIndexFragment implements IIndexFragment {
 		return 0;
 	}
 
+	@Deprecated
 	public IIndexFragmentFile getFile(int linkageID, IIndexFileLocation location)
 			throws CoreException {
 		return null;
 	}
 
+	public IIndexFragmentFile getFile(int linkageID, IIndexFileLocation location,
+			ISignificantMacros sigMacros) throws CoreException {
+		return null;
+	}
+
+	public IIndexFragmentFile[] getFiles(int linkageID, IIndexFileLocation location)
+			throws CoreException {
+		return IIndexFragmentFile.EMPTY_ARRAY;
+	}
 	
 	public IIndexFragmentFile[] getFiles(IIndexFileLocation location) throws CoreException {
-		return new IIndexFragmentFile[0];
+		return IIndexFragmentFile.EMPTY_ARRAY;
 	}
 
 	public long getLastWriteAccess() {

@@ -2,7 +2,7 @@
 <feature
       id="org.eclipse.cdt"
       label="%featureName"
-      version="8.0.0.qualifier"
+      version="8.1.0.qualifier"
       provider-name="%providerName"
       image="eclipse_update_120.jpg">
 
@@ -40,10 +40,6 @@
 
    <includes
          id="org.eclipse.cdt.gnu.dsf"
-         version="0.0.0"/>
-
-   <includes
-         id="org.eclipse.cdt.p2"
          version="0.0.0"/>
 
 </feature>

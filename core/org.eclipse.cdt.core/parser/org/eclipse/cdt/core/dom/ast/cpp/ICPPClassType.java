@@ -6,7 +6,7 @@
  * http://www.eclipse.org/legal/epl-v10.html
  *
  * Contributors:
- *    Doug Schaefer (IBM) - Initial API and implementation
+ *     Doug Schaefer (IBM) - Initial API and implementation
  *******************************************************************************/
 package org.eclipse.cdt.core.dom.ast.cpp;
 
@@ -21,7 +21,7 @@ import org.eclipse.cdt.core.dom.ast.IField;
  * @noimplement This interface is not intended to be implemented by clients.
  */
 public interface ICPPClassType extends ICompositeType, ICPPBinding {
-	public static final ICPPClassType[] EMPTY_CLASS_ARRAY = new ICPPClassType[0];
+	public static final ICPPClassType[] EMPTY_CLASS_ARRAY = {};
 	public static final int k_class = ICPPASTCompositeTypeSpecifier.k_class;
 
 	/**
@@ -33,19 +33,20 @@ public interface ICPPClassType extends ICompositeType, ICPPBinding {
 	public ICPPBase[] getBases();
 
 	/**
-	 * Get fields is restated here just to point out that this method returns a
-	 * list of ICPPField objects representing all fields, declared or inherited.
+	 * Get fields is restated here just to point out that this method returns a list of ICPPField
+	 * objects representing all fields, declared or inherited.
 	 */
+	@Override
 	public IField[] getFields();
 
 	/**
-	 * findField is restated here to point out that this method looks through
-	 * the inheritance tree of this class while looking for a field with the
-	 * given name If no field is found, null is returned, if the name is found
-	 * to be ambiguous a IProblemBinding is returned.
+	 * findField is restated here to point out that this method looks through the inheritance tree
+	 * of this class while looking for a field with the given name If no field is found, null is
+	 * returned, if the name is found to be ambiguous a IProblemBinding is returned.
 	 * 
 	 * @param name
 	 */
+	@Override
 	public IField findField(String name);
 
 	/**

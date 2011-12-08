@@ -2,7 +2,7 @@ Manifest-Version: 1.0
 Bundle-ManifestVersion: 2
 Bundle-Name: %pluginName
 Bundle-SymbolicName: org.eclipse.cdt.debug.gdbjtag.ui;singleton:=true
-Bundle-Version: 7.0.0.qualifier
+Bundle-Version: 7.1.0.qualifier
 Bundle-Activator: org.eclipse.cdt.debug.gdbjtag.ui.Activator
 Bundle-Localization: plugin
 Require-Bundle: org.eclipse.ui,
@@ -20,4 +20,4 @@ Bundle-ActivationPolicy: lazy
 Bundle-Vendor: %providerName
 Export-Package: org.eclipse.cdt.debug.gdbjtag.internal.ui;x-internal:=true,
  org.eclipse.cdt.debug.gdbjtag.ui
-Bundle-RequiredExecutionEnvironment: J2SE-1.5
+Bundle-RequiredExecutionEnvironment: JavaSE-1.6

@@ -59,7 +59,7 @@ public class PDOMSearchTextSelectionQuery extends PDOMSearchQuery {
 					if (searchName != null) {
 						label= searchName.toString();
 						IBinding binding= searchName.resolveBinding();
-						if (binding instanceof IProblemBinding == false) {
+						if (!(binding instanceof IProblemBinding)) {
 							if (binding != null) {
 								IScope scope= null;
 								try {
@@ -71,7 +71,7 @@ public class PDOMSearchTextSelectionQuery extends PDOMSearchQuery {
 									return Status.OK_STATUS;
 								}
 							}
-							binding = index.findBinding(searchName);
+							binding = ast.getIndex().findBinding(searchName);
 							binding= CPPTemplates.findDeclarationForSpecialization(binding);
 							if (binding != null) {
 								label= labelForBinding(index, binding, label);

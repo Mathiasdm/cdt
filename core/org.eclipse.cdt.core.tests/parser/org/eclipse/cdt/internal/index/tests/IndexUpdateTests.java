@@ -6,7 +6,7 @@
  * http://www.eclipse.org/legal/epl-v10.html
  *
  * Contributors:
- *    Markus Schorn - initial API and implementation
+ *     Markus Schorn - initial API and implementation
  *******************************************************************************/ 
 package org.eclipse.cdt.internal.index.tests;
 
@@ -59,7 +59,6 @@ import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IAdaptable;
 
 public class IndexUpdateTests extends IndexTestBase {
-
 	private static final String EXPLICIT = "explicit";
 	private static final String VIRTUAL = "virtual";
 	private static final String PURE_VIRTUAL= "pure-virtual";
@@ -82,9 +81,9 @@ public class IndexUpdateTests extends IndexTestBase {
 		return suite;
 	}
 
-	private ICProject fCppProject= null;
-	private ICProject fCProject= null;
-	private IIndex fIndex= null;
+	private ICProject fCppProject;
+	private ICProject fCProject;
+	private IIndex fIndex;
 	private CharSequence[] fContents;
 	private IFile fFile;
 	private IFile fHeader;
@@ -117,6 +116,15 @@ public class IndexUpdateTests extends IndexTestBase {
 		assertTrue(CCorePlugin.getIndexManager().joinIndexer(INDEXER_WAIT_TIME, npm()));
 	}
 
+	private void updateHeader() throws Exception {
+		// Append variable comment to the end of the file to change its contents.
+		// Indexer would not reindex the file if its contents remain the same. 
+		IProject project= fHeader.getProject();
+		fHeader= TestSourceReader.createFile(project, "header.h",
+				fContents[++fContentUsed].toString() + "\n// " + fContentUsed); 
+		TestSourceReader.waitUntilFileIsIndexed(fIndex, fHeader, INDEXER_WAIT_TIME);
+	}
+
 	private void setupFile(int totalFileVersions, boolean cpp) throws Exception {
 		if (fContents == null) {
 			fContents= getContentsForTest(totalFileVersions);
@@ -135,7 +143,7 @@ public class IndexUpdateTests extends IndexTestBase {
 				fContents[++fContentUsed].toString() + "\n// " + fContentUsed); 
 		TestSourceReader.waitUntilFileIsIndexed(fIndex, fFile, INDEXER_WAIT_TIME);
 	}
-	
+
 	@Override
 	public void tearDown() throws Exception {
 		fIndex= null;
@@ -1276,7 +1284,7 @@ public class IndexUpdateTests extends IndexTestBase {
 		setupFile(2, true);
 		long id1, id2;
 		fIndex.acquireReadLock();
-		try { 
+		try {
 			final IIndexBinding binding = findBinding("X");
 			id1= ((PDOMFile) binding.getLocalToFile()).getRecord();
 		} finally {
@@ -1285,7 +1293,7 @@ public class IndexUpdateTests extends IndexTestBase {
 		
 		updateFile();
 		fIndex.acquireReadLock();
-		try { 
+		try {
 			final IIndexBinding binding = findBinding("X");
 			id2= ((PDOMFile) binding.getLocalToFile()).getRecord();
 		} finally {
@@ -1335,6 +1343,120 @@ public class IndexUpdateTests extends IndexTestBase {
 			assertFalse(ns.isInline());
 			final ICPPNamespace m = (ICPPNamespace) findBinding("ns::m");
 			assertFalse(ns.isInline());
+		} finally {
+			fIndex.releaseReadLock();
+		}
+	}
+	
+	//	typedef enum {
+	//		AE_ON = 0
+	//	} Adaptiv_T;
+	//	struct mystruct {
+	//		Adaptiv_T       eAdapt;
+	//	};
+	
+	// int main() {
+	//    mystruct ms;
+	//    ms.eAdapt = AE_ON;
+	// }
+
+	//  // insert line
+	//	typedef enum {
+	//		AE_ON = 0
+	//	} Adaptiv_T;
+	//	struct mystruct {
+	//		Adaptiv_T       eAdapt;
+	//	};
+	public void testAnonymousEnum_Bug356057cpp() throws Exception {
+		setupHeader(3, true);
+		setupFile(3, true);
+		String name1;
+		fIndex.acquireReadLock();
+		try { 
+			final IEnumerator e = (IEnumerator) findBinding("AE_ON");
+			assertNotNull(e);
+			name1= e.getOwner().getName();
+		} finally {
+			fIndex.releaseReadLock();
+		}
+		updateHeader();
+		fIndex.acquireReadLock();
+		try { 
+			final IEnumerator e = (IEnumerator) findBinding("AE_ON");
+			assertNotNull(e);
+			assertFalse(name1.equals(e.getOwner().getName()));
+		} finally {
+			fIndex.releaseReadLock();
+		}
+	}
+
+	//	typedef enum {
+	//		AE_ON = 0
+	//	} Adaptiv_T;
+	//	struct mystruct {
+	//		Adaptiv_T       eAdapt;
+	//	};
+	
+	// int main() {
+	//    mystruct ms;
+	//    ms.eAdapt = AE_ON;
+	// }
+
+	//  // insert line
+	//	typedef enum {
+	//		AE_ON = 0
+	//	} Adaptiv_T;
+	//	struct mystruct {
+	//		Adaptiv_T       eAdapt;
+	//	};
+	public void testAnonymousEnum_Bug356057c() throws Exception {
+		setupHeader(3, false);
+		setupFile(3, false);
+		String name1;
+		fIndex.acquireReadLock();
+		try { 
+			final IEnumerator e = (IEnumerator) findBinding("AE_ON");
+			assertNotNull(e);
+			name1= e.getOwner().getName();
+		} finally {
+			fIndex.releaseReadLock();
+		}
+		updateHeader();
+		fIndex.acquireReadLock();
+		try { 
+			final IEnumerator e = (IEnumerator) findBinding("AE_ON");
+			assertNotNull(e);
+			assertFalse(name1.equals(e.getOwner().getName()));
+		} finally {
+			fIndex.releaseReadLock();
+		}
+	}
+	
+	// struct S {};
+	
+	// struct S {S(int){}};
+	public void testImplicitDefaultCtor_Bug359376() throws Exception {
+		setupFile(2, true);
+		fIndex.acquireReadLock();
+		try { 
+			final ICPPClassType s = (ICPPClassType) findBinding("S");
+			assertNotNull(s);
+			final ICPPConstructor[] ctors = s.getConstructors();
+			assertEquals(2, ctors.length); // 2 implicit ctors
+			assertTrue(ctors[0].isImplicit());
+			assertTrue(ctors[1].isImplicit());
+		} finally {
+			fIndex.releaseReadLock();
+		}
+		updateFile();
+		
+		fIndex.acquireReadLock();
+		try { 
+			final ICPPClassType s = (ICPPClassType) findBinding("S");
+			assertNotNull(s);
+			final ICPPConstructor[] ctors = s.getConstructors();
+			assertEquals(2, ctors.length); // 1 explicit and one implicit ctor
+			assertTrue(ctors[0].isImplicit() != ctors[1].isImplicit());
 		} finally {
 			fIndex.releaseReadLock();
 		}

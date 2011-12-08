@@ -6,9 +6,8 @@
  * http://www.eclipse.org/legal/epl-v10.html
  *
  * Contributors:
- *    Markus Schorn - initial API and implementation
+ *     Markus Schorn - initial API and implementation
  *******************************************************************************/
-
 package org.eclipse.cdt.internal.index.tests;
 
 import java.io.IOException;
@@ -89,6 +88,13 @@ public class IndexNamesTests extends BaseTestCase {
 		return result;
 	}
 
+	private IIndexFile getIndexFile(int linkageID, IFile file) throws CoreException {
+		IIndexFile[] files = fIndex.getFiles(linkageID, IndexLocationFactory.getWorkspaceIFL(file));
+		assertTrue("Can't find " + file.getLocation(), files.length > 0);
+		assertEquals("Found " + files.length + " files for " + file.getLocation() + " instead of one", 1, files.length);
+		return files[0];
+	}
+
 	protected void waitUntilFileIsIndexed(IFile file, int time) throws Exception {
 		TestSourceReader.waitUntilFileIsIndexed(fIndex, file, time);
 	}
@@ -129,8 +135,7 @@ public class IndexNamesTests extends BaseTestCase {
 			enclosing= enclosed[1].getEnclosingDefinition();
 			assertNotNull(enclosing);
 			assertName("main", enclosing);			
-		}
-		finally {
+		} finally {
 			fIndex.releaseReadLock();
 		}
 	}
@@ -223,8 +228,7 @@ public class IndexNamesTests extends BaseTestCase {
 			enclosing= enclosed[2].getEnclosingDefinition();
 			assertNotNull(enclosing);
 			assertName("func", enclosing);			
-		}
-		finally {
+		} finally {
 			fIndex.releaseReadLock();
 		}
 	}
@@ -266,7 +270,7 @@ public class IndexNamesTests extends BaseTestCase {
 
 		fIndex.acquireReadLock();
 		try {
-			IIndexFile ifile= fIndex.getFile(ILinkage.CPP_LINKAGE_ID, IndexLocationFactory.getWorkspaceIFL(file));
+			IIndexFile ifile= getIndexFile(ILinkage.CPP_LINKAGE_ID, file);
 			IIndexName[] names= ifile.findNames(0, content.length());
 			int j= 0;
 			for (IIndexName indexName : names) {
@@ -274,8 +278,7 @@ public class IndexNamesTests extends BaseTestCase {
 					assertEquals(couldbepolymorphic[j], indexName.couldBePolymorphicMethodCall());
 					assertEquals(container[j], CPPVisitor.getQualifiedName(fIndex.findBinding(indexName))[0]);
 					j++;
-				}
-				else {
+				} else {
 					assertEquals(false, indexName.couldBePolymorphicMethodCall());
 				}
 			}
@@ -284,8 +287,43 @@ public class IndexNamesTests extends BaseTestCase {
 			fIndex.releaseReadLock();
 		}
 	}
-
 	
+	//	class A {
+	//	    virtual void foo(){} 
+	//	    template<typename C> void SetCallback(C callback){}
+	//	    void InitCallback() {
+	//	        SetCallback(&A::foo); // Can be A::foo or B::foo
+	//	    }
+	//	};
+	//	class B: public A {
+	//	    virtual void foo(){}
+	//	};
+	public void testAddressOfPolymorphicMethod_Bug363731() throws Exception {
+		waitForIndexer();
+		String content= getComment();
+		IFile file= createFile(getProject().getProject(), "test.cpp", content);
+		waitUntilFileIsIndexed(file, 4000);
+
+		fIndex.acquireReadLock();
+		try {
+			IIndexFile ifile= getIndexFile(ILinkage.CPP_LINKAGE_ID, file);
+			IIndexName[] names= ifile.findNames(0, content.length());
+			int j= 0;
+			for (IIndexName indexName : names) {
+				if (indexName.isReference() && indexName.toString().equals("foo")) {
+					assertEquals(true, indexName.couldBePolymorphicMethodCall());
+					assertEquals("A", CPPVisitor.getQualifiedName(fIndex.findBinding(indexName))[0]);
+					j++;
+				} else {
+					assertEquals(false, indexName.couldBePolymorphicMethodCall());
+				}
+			}
+			assertEquals(1, j);
+		} finally {
+			fIndex.releaseReadLock();
+		}
+	}
+
 	//	int _i, ri, wi, rwi;
 	//  int* rp; int* wp; int* rwp;
 	//  const int* cip= &ri;
@@ -326,7 +364,7 @@ public class IndexNamesTests extends BaseTestCase {
 			CoreException {
 		fIndex.acquireReadLock();
 		try {
-			IIndexFile ifile= fIndex.getFile(linkageID, IndexLocationFactory.getWorkspaceIFL(file));
+			IIndexFile ifile= getIndexFile(linkageID, file);
 			IIndexName[] names= ifile.findNames(0, Integer.MAX_VALUE);
 			int j= 0;
 			for (IIndexName indexName : names) {
@@ -339,14 +377,12 @@ public class IndexNamesTests extends BaseTestCase {
 					assertEquals("Read access for " + msg, isRead, indexName.isReadAccess());
 					assertEquals("Write access for " + msg, isWrite, indexName.isWriteAccess());
 					j++;
-				}
-				else {
+				} else {
 					assertEquals(false, indexName.couldBePolymorphicMethodCall());
 				}
 			}
 			assertEquals(count, j);
-		}
-		finally {
+		} finally {
 			fIndex.releaseReadLock();
 		}
 	}

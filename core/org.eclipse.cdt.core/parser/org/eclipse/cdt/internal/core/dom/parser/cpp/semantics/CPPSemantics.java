@@ -6,12 +6,12 @@
  * http://www.eclipse.org/legal/epl-v10.html
  *
  * Contributors:
- *    Andrew Niefer (IBM) - Initial API and implementation
- *    Markus Schorn (Wind River Systems)
- *    Bryan Wilkinson (QNX)
- *    Andrew Ferguson (Symbian)
- *    Sergey Prigogin (Google)
- *    Mike Kucera (IBM)
+ *     Andrew Niefer (IBM) - Initial API and implementation
+ *     Markus Schorn (Wind River Systems)
+ *     Bryan Wilkinson (QNX)
+ *     Andrew Ferguson (Symbian)
+ *     Sergey Prigogin (Google)
+ *     Mike Kucera (IBM)
  *******************************************************************************/
 package org.eclipse.cdt.internal.core.dom.parser.cpp.semantics;
 
@@ -220,11 +220,11 @@ public class CPPSemantics {
 	 * The maximum depth to search ancestors before assuming infinite looping.
 	 */
 	public static final int MAX_INHERITANCE_DEPTH= 16;
-	
+
     public static final ASTNodeProperty STRING_LOOKUP_PROPERTY =
     		new ASTNodeProperty("CPPSemantics.STRING_LOOKUP_PROPERTY - STRING_LOOKUP"); //$NON-NLS-1$
 	public static final String EMPTY_NAME = ""; //$NON-NLS-1$
-	public static final char[] OPERATOR_ = new char[] {'o','p','e','r','a','t','o','r',' '};  
+	public static final char[] OPERATOR_ = new char[] {'o','p','e','r','a','t','o','r',' '};
 	private static final char[] CALL_FUNCTION = "call-function".toCharArray(); //$NON-NLS-1$
 	public static final IType VOID_TYPE = new CPPBasicType(Kind.eVoid, 0);
 	public static final IType INT_TYPE = new CPPBasicType(Kind.eInt, 0);
@@ -232,12 +232,12 @@ public class CPPSemantics {
 	// Set to true for debugging.
 	public static boolean traceBindingResolution = false;
 	public static int traceIndent= 0;
-	
+
 	// special return value for costForFunctionCall
 	private static final FunctionCost CONTAINS_DEPENDENT_TYPES = new FunctionCost(null, 0);
 	static protected IBinding resolveBinding(IASTName name) {
 		if (traceBindingResolution) {
-			for (int i = 0; i < traceIndent; i++) 
+			for (int i = 0; i < traceIndent; i++)
 				System.out.print("  "); //$NON-NLS-1$
 			System.out.println("Resolving " + name + ':' + ((ASTNode) name).getOffset()); //$NON-NLS-1$
 			traceIndent++;
@@ -245,10 +245,10 @@ public class CPPSemantics {
 		if (name instanceof CPPASTNameBase) {
 			((CPPASTNameBase) name).incResolutionDepth();
 		}
-		
+
 		// 1: get some context info off of the name to figure out what kind of lookup we want
 		LookupData data = createLookupData(name);
-		
+
 		try {
             // 2: lookup
             lookup(data, null);
@@ -274,7 +274,7 @@ public class CPPSemantics {
 		binding = postResolution(binding, data);
 		if (traceBindingResolution) {
 			traceIndent--;
-			for (int i = 0; i < traceIndent; i++) 
+			for (int i = 0; i < traceIndent; i++)
 				System.out.print("  "); //$NON-NLS-1$
 			System.out.println("Resolved  " + name + ':' + ((ASTNode) name).getOffset() +  //$NON-NLS-1$
 					" to " + DebugUtil.toStringWithClass(binding) + ':' + System.identityHashCode(binding)); //$NON-NLS-1$
@@ -290,7 +290,7 @@ public class CPPSemantics {
     private static IBinding postResolution(IBinding binding, LookupData data) {
         if (binding instanceof IProblemBinding)
         	return binding;
-        
+
         if (binding == null && data.checkClassContainingFriend()) {
         	// 3.4.1-10 if we don't find a name used in a friend declaration in the member declaration's class
         	// we should look in the class granting friendship
@@ -308,15 +308,24 @@ public class CPPSemantics {
         	}
         }
 
-        /* 14.6.1-1: 
-         * Within the scope of a class template, when the name of the template is neither qualified nor 
+        // Explicit type conversion in functional notation
+		if (binding instanceof ICPPClassTemplate && data.astName instanceof ICPPASTTemplateId) {
+			final IASTNode parent = data.astName.getParent();
+			if (parent instanceof IASTIdExpression &&
+					parent.getPropertyInParent() == IASTFunctionCallExpression.FUNCTION_NAME) {
+				return binding;
+			}
+		}
+
+        /* 14.6.1-1:
+         * Within the scope of a class template, when the name of the template is neither qualified nor
          * followed by <, it is equivalent to the name followed by the template parameters enclosed in <>.
          */
 		if (binding instanceof ICPPClassTemplate && !(binding instanceof ICPPClassSpecialization) &&
 				!(binding instanceof ICPPTemplateParameter) && !(data.astName instanceof ICPPASTTemplateId)) {
 			ASTNodeProperty prop = data.astName.getPropertyInParent();
 			if (prop != ICPPASTTemplateId.TEMPLATE_NAME && prop != ICPPASTQualifiedName.SEGMENT_NAME) {
-				// You cannot use a class template name outside of the class template scope, 
+				// You cannot use a class template name outside of the class template scope,
 				// mark it as a problem.
 				IBinding replacement= CPPTemplates.isUsedInClassTemplateScope((ICPPClassTemplate) binding, data.astName);
 				if (replacement != null) {
@@ -360,7 +369,7 @@ public class CPPSemantics {
 				}
 			}
 		}
-		
+
 		if (binding instanceof IType) {
 			IType t = getNestedType((IType) binding, TDEF);
 			if (t instanceof ICPPClassType && convertClassToConstructor(data.astName)) {
@@ -373,7 +382,7 @@ public class CPPSemantics {
 						if (data.tu != null) {
 							ICPPASTTemplateId id = (ICPPASTTemplateId) data.astName;
 							ICPPTemplateArgument[] args = CPPTemplates.createTemplateArgumentArray(id);
-							IBinding inst= CPPTemplates.instantiate((ICPPClassTemplate) cls, args, false);
+							IBinding inst= CPPTemplates.instantiate((ICPPClassTemplate) cls, args);
 							if (inst instanceof ICPPClassType) {
 								cls= (ICPPClassType) inst;
 							}
@@ -441,15 +450,15 @@ public class CPPSemantics {
 	        	} 
 	        } else if (namePropertyInParent == IASTIdExpression.ID_NAME) {
 	        	if (binding instanceof IType) {
-		        	IASTNode parent= name.getParent().getParent();
-		        	if (parent instanceof ICPPASTTemplatedTypeTemplateParameter) {
-			        	// default for template template parameter is an id-expression, which is a type.
-					} else if (parent instanceof ICPPASTUnaryExpression
-							&& ((ICPPASTUnaryExpression) parent).getOperator() == IASTUnaryExpression.op_sizeofParameterPack) {
-						// argument of sizeof... can be a type
-					} else if ((binding instanceof ICPPUnknownType || binding instanceof ITypedef || binding instanceof IEnumeration)
-							&& convertClassToConstructor(data.astName)) {
-						// constructor or simple-type constructor
+		        	final IASTNode idExpr = name.getParent();
+					ASTNodeProperty pip = idExpr.getPropertyInParent();
+		        	if (pip == ICPPASTTemplatedTypeTemplateParameter.DEFAULT_VALUE) {
+			        	// Default for template template parameter is a type.
+					} else if (pip == IASTFunctionCallExpression.FUNCTION_NAME) {
+						// Explicit type conversion in functional notation.
+					} else if (pip == IASTUnaryExpression.OPERAND 
+							&& ((ICPPASTUnaryExpression) idExpr.getParent()).getOperator() == IASTUnaryExpression.op_sizeofParameterPack) {
+						// Argument of sizeof... can be a type
 					} else {
 		        		binding= new ProblemBinding(data.astName, IProblemBinding.SEMANTIC_INVALID_TYPE,
 		        				data.getFoundBindings());
@@ -511,20 +520,7 @@ public class CPPSemantics {
 		if (parent instanceof ICPPASTConstructorChainInitializer) {
 			return true;
 		}
-		if (parent instanceof IASTExpression) {
-			ASTNodeProperty propInParent= parent.getPropertyInParent();
-			if (parent instanceof IASTIdExpression) {
-				parent= parent.getParent();
-			}
-			while (parent instanceof IASTUnaryExpression
-					&& ((IASTUnaryExpression) parent).getOperator() == IASTUnaryExpression.op_bracketedPrimary) {
-				propInParent = parent.getPropertyInParent();
-				parent= parent.getParent();
-			}
-			if (parent instanceof IASTFunctionCallExpression && propInParent == IASTFunctionCallExpression.FUNCTION_NAME) {
-				return true;
-			}
-		} else if (parent instanceof ICPPASTNamedTypeSpecifier) {
+		if (parent instanceof ICPPASTNamedTypeSpecifier) {
 			parent= parent.getParent();
 			if (parent instanceof IASTTypeId && parent.getParent() instanceof ICPPASTNewExpression) {
 				IASTDeclarator dtor = ((IASTTypeId) parent).getAbstractDeclarator();
@@ -785,7 +781,9 @@ public class CPPSemantics {
 	            data.foundItems = ArrayUtil.addAll(Object.class, (Object[]) data.foundItems, (Object[]) results);
 	        }
 	    } else {
-	        data.foundItems = mergePrefixResults((CharArrayObjectMap) data.foundItems, results, scoped);
+	        @SuppressWarnings("unchecked")
+			final CharArrayObjectMap<Object> oldItems = (CharArrayObjectMap<Object>) data.foundItems;
+			data.foundItems = mergePrefixResults(oldItems, results, scoped);
 	    }
 	}
 	
@@ -795,15 +793,17 @@ public class CPPSemantics {
 	 * @param scoped
 	 * @return
 	 */
-	static CharArrayObjectMap mergePrefixResults(CharArrayObjectMap dest, Object source, boolean scoped) {
+	static CharArrayObjectMap<Object> mergePrefixResults(CharArrayObjectMap<Object> dest, Object source, boolean scoped) {
 		if (source == null) return dest; 
-        CharArrayObjectMap resultMap = (dest != null) ? dest : new CharArrayObjectMap(2);
+        CharArrayObjectMap<Object> resultMap = (dest != null) ? dest : new CharArrayObjectMap<Object>(2);
         
-        CharArrayObjectMap map = null;
+        CharArrayObjectMap<Object> map = null;
         Object[] objs = null;
         int size;
         if (source instanceof CharArrayObjectMap) {
-        	map = (CharArrayObjectMap) source;
+        	@SuppressWarnings("unchecked")
+			final CharArrayObjectMap<Object> sourceMap = (CharArrayObjectMap<Object>) source;
+			map = sourceMap;
         	size= map.size();
 	    } else {
 			if (source instanceof Object[])
@@ -955,7 +955,7 @@ public class CPPSemantics {
 				return;
 			
 			// Lookup in base classes
-			if (!data.usingDirectivesOnly && scope instanceof ICPPClassScope) {
+			if (!data.usingDirectivesOnly && scope instanceof ICPPClassScope && !data.ignoreMembers) {
 				BaseClassLookup.lookupInBaseClasses(data, (ICPPClassScope) scope, fileSet);
 				if (!data.contentAssist && data.hasResultOrProblem()) 
 					return;
@@ -1226,10 +1226,10 @@ public class CPPSemantics {
 			// For index scopes the point of declaration is ignored.
 			bindings= scope.getBindings(data.astName, true, data.prefixLookup, fileSet);
 		}
-		return expandUsingDeclarationsAndRemoveObjects(bindings, data.typesOnly);
+		return expandUsingDeclarationsAndRemoveObjects(bindings, data);
 	}
 
-	private static IBinding[] expandUsingDeclarationsAndRemoveObjects(final IBinding[] bindings, boolean removeObjects) {
+	private static IBinding[] expandUsingDeclarationsAndRemoveObjects(final IBinding[] bindings, LookupData data) {
 		if (bindings == null || bindings.length == 0)
 			return IBinding.EMPTY_BINDING_ARRAY;
 		
@@ -1237,9 +1237,9 @@ public class CPPSemantics {
 			if (b == null) 
 				break;
 				
-			if (b instanceof ICPPUsingDeclaration || (removeObjects && isObject(b))) {
+			if (b instanceof ICPPUsingDeclaration || (data.typesOnly && isObject(b))) {
 				List<IBinding> result= new ArrayList<IBinding>(bindings.length);
-				expandUsingDeclarations(bindings, removeObjects, result);
+				expandUsingDeclarations(bindings, data, result);
 				return result.toArray(new IBinding[result.size()]);
 			}
 		}
@@ -1250,18 +1250,21 @@ public class CPPSemantics {
 		return !(b instanceof IType || b instanceof ICPPNamespace);
 	}
 
-	private static void expandUsingDeclarations(IBinding[] bindings, boolean removeObjects, List<IBinding> result) {
+	private static void expandUsingDeclarations(IBinding[] bindings, LookupData data, List<IBinding> result) {
 		if (bindings != null) {
 			for (IBinding b : bindings) {
 				if (b == null)
 					return;
+				// Lookup for a declaration shall ignore the using declarations.
 				if (b instanceof ICPPUsingDeclaration) {
-					for (IBinding d : ((ICPPUsingDeclaration) b).getDelegates()) {
-						if (d != null && !(removeObjects && isObject(d))) {
-							result.add(d);
+					if (data.forDeclaration() == null) {
+						for (IBinding d : ((ICPPUsingDeclaration) b).getDelegates()) {
+							if (d != null && !(data.typesOnly && isObject(d))) {
+								result.add(d);
+							}
 						}
 					}
-				} else if (!(removeObjects && isObject(b))) {
+				} else if (!(data.typesOnly && isObject(b))) {
 					result.add(b);
 				}
 			}
@@ -1424,6 +1427,15 @@ public class CPPSemantics {
 			// The enumeration scope contains the enumeration items
 	    	for (IASTEnumerator enumerator : ((ICPPASTEnumerationSpecifier) parent).getEnumerators()) {
 	    		ASTInternal.addName(scope, enumerator.getName());
+	    	}
+	    	return;
+		} else if (parent instanceof ICPPASTTemplatedTypeTemplateParameter) {
+			// The template-template parameter scope contains the parameters
+	    	for (ICPPASTTemplateParameter par : ((ICPPASTTemplatedTypeTemplateParameter) parent).getTemplateParameters()) {
+	    		IASTName name= CPPTemplates.getTemplateParameterName(par);
+	    		if (name != null) {
+	    			ASTInternal.addName(scope, name);
+	    		}
 	    	}
 	    	return;
 		}
@@ -2036,8 +2048,7 @@ public class CPPSemantics {
 
 	    	return type;
 	    }
-	    
-	    
+
 		if (fns.size() > 0) {
 	    	final ICPPFunction[] fnArray = fns.keyArray(ICPPFunction.class);
 	    	if (type != null && overrulesByRelevance(data, type, fnArray)) {
@@ -2315,7 +2326,7 @@ public class CPPSemantics {
 	    return result;
 	}
 	
-	static IBinding resolveFunction(LookupData data, ICPPFunction[] fns, boolean allowUDC) throws DOMException {
+	public static IBinding resolveFunction(LookupData data, ICPPFunction[] fns, boolean allowUDC) throws DOMException {
 	    fns= (ICPPFunction[]) ArrayUtil.trim(ICPPFunction.class, fns);
 	    if (fns == null || fns.length == 0)
 	        return null;
@@ -2346,8 +2357,7 @@ public class CPPSemantics {
 	    		Arrays.asList(data.getFunctionArgumentValueCategories()), data.argsContainImpliedObject);
 	    if (tmp.length == 0 || tmp[0] == null) 
 			return new ProblemBinding(data.astName, IProblemBinding.SEMANTIC_NAME_NOT_FOUND, fns);
-	    	
-		
+
 		int viableCount= 0;
 		for (IFunction f : tmp) {
 			if (f instanceof ICPPUnknownBinding) {
@@ -2465,7 +2475,7 @@ public class CPPSemantics {
 		boolean haveASTResult= false;
 		for (ICPPFunction f : fns) {
 			// Use the ast binding
-			final boolean fromIndex = f instanceof IIndexBinding;
+			final boolean fromIndex = isFromIndex(f);
 			if (haveASTResult && fromIndex) 
 				break;
 			
@@ -2676,7 +2686,7 @@ public class CPPSemantics {
 			    	return CONTAINS_DEPENDENT_TYPES;
 			    
 			    Context ctx= Context.ORDINARY;
-			    if (j==0 && sourceLen == 1 && fn instanceof ICPPConstructor) {
+			    if (j == 0 && sourceLen == 1 && fn instanceof ICPPConstructor) {
 			    	if (paramType instanceof ICPPReferenceType) {
 			    		if (((ICPPConstructor) fn).getClassOwner().isSameType(getNestedType(paramType, TDEF|REF|CVTYPE))) {
 			    			ctx= Context.FIRST_PARAM_OF_DIRECT_COPY_CTOR;
@@ -3493,7 +3503,7 @@ public class CPPSemantics {
 		LookupData data = createLookupData(name);
 		data.contentAssist = true;
 		data.prefixLookup = prefixLookup;
-		data.foundItems = new CharArrayObjectMap(2);
+		data.foundItems = new CharArrayObjectMap<Object>(2);
 
 		// Convert namespaces to scopes.
 		List<ICPPScope> nsScopes= new ArrayList<ICPPScope>();
@@ -3561,7 +3571,8 @@ public class CPPSemantics {
     		}
         } catch (DOMException e) {
         }
-        CharArrayObjectMap map = (CharArrayObjectMap) data.foundItems;
+        @SuppressWarnings("unchecked")
+		CharArrayObjectMap<Object> map = (CharArrayObjectMap<Object>) data.foundItems;
         IBinding[] result = IBinding.EMPTY_BINDING_ARRAY;
         if (!map.isEmpty()) {
             char[] key = null;
@@ -3581,7 +3592,7 @@ public class CPPSemantics {
 			}
 			return result;
 		}
-		
+
         if (obj instanceof IASTName) {
             return addContentAssistBinding(result, ((IASTName) obj).resolveBinding());
         }
@@ -3610,7 +3621,7 @@ public class CPPSemantics {
 		Object[] items = (Object[]) data.foundItems;
 		if (items == null)
 		    return new IBinding[0];
-		
+
 		ObjectSet<IBinding> set = new ObjectSet<IBinding>(items.length);
 		IBinding binding = null;
 		for (Object item : items) {
@@ -3680,7 +3691,7 @@ public class CPPSemantics {
 		return true;
 	}
 
-	private static boolean isSameTemplateParameter(ICPPTemplateParameter tp1, ICPPASTTemplateParameter tp2) {
+	static boolean isSameTemplateParameter(ICPPTemplateParameter tp1, ICPPASTTemplateParameter tp2) {
 		if (tp1.isParameterPack() != tp2.isParameterPack())
 			return false;
 		
