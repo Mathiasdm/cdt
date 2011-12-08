@@ -84,16 +84,6 @@ public class UnneededHeaderGuardTest extends CheckerTestCase {
 		checkNoErrors();
 	}
 
-	// @file:intermingled.hh
-	// #ifndef INTER_H
-	// int foo();
-	// #include "inter.h"
-	// #endif
-	public void testIntermingledSingleQuoted() {
-		loadCodeAndRun(getAboveComment());
-		checkNoErrors();
-	}
-
 	// @file:largebatch.c
 	// #ifndef FIRST
 	// #include "first.h" //Problem
@@ -103,10 +93,6 @@ public class UnneededHeaderGuardTest extends CheckerTestCase {
 	// #endif
 	// int foo();
 	// int bar();
-	// #ifndef NEXT_H
-	// #include "foooobar.h" //No problem
-	// enum SomeEnum {EntryOne, EntryTwo, EntryThree};
-	// #endif
 	// #ifndef ONE
 	// #include "one.h" //Problem
 	// #endif
@@ -124,6 +110,6 @@ public class UnneededHeaderGuardTest extends CheckerTestCase {
 	// #endif
 	public void testLargeBatch() {
 		loadCodeAndRun(getAboveComment());
-		checkErrorLines(2, 5, 14, 17, 20, 23, 26);
+		checkErrorLines(2, 5, 10, 13, 16, 19, 22);
 	}
 }
