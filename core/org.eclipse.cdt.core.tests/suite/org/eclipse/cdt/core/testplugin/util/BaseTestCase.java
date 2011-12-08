@@ -130,6 +130,7 @@ public class BaseTestCase extends TestCase {
 	public void runBare() throws Throwable {
 		final List<IStatus> statusLog= Collections.synchronizedList(new ArrayList());
 		ILogListener logListener= new ILogListener() {
+			@Override
 			public void logging(IStatus status, String plugin) {
 				if (!status.isOK() && status.getSeverity() != IStatus.INFO) {
 					switch (status.getCode()) {
@@ -272,6 +273,7 @@ public class BaseTestCase extends TestCase {
 			CoreModel.getDefault().removeElementChangedListener(this);
 		}
 		
+		@Override
 		public void elementChanged(ElementChangedEvent event) {
 			// Only respond to post change events
 			if (event.getType() != ElementChangedEvent.POST_CHANGE)

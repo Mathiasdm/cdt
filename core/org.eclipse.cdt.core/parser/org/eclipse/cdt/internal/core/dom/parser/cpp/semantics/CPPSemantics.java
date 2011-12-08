@@ -781,7 +781,9 @@ public class CPPSemantics {
 	            data.foundItems = ArrayUtil.addAll(Object.class, (Object[]) data.foundItems, (Object[]) results);
 	        }
 	    } else {
-	        data.foundItems = mergePrefixResults((CharArrayObjectMap) data.foundItems, results, scoped);
+	        @SuppressWarnings("unchecked")
+			final CharArrayObjectMap<Object> oldItems = (CharArrayObjectMap<Object>) data.foundItems;
+			data.foundItems = mergePrefixResults(oldItems, results, scoped);
 	    }
 	}
 	
@@ -791,15 +793,17 @@ public class CPPSemantics {
 	 * @param scoped
 	 * @return
 	 */
-	static CharArrayObjectMap mergePrefixResults(CharArrayObjectMap dest, Object source, boolean scoped) {
+	static CharArrayObjectMap<Object> mergePrefixResults(CharArrayObjectMap<Object> dest, Object source, boolean scoped) {
 		if (source == null) return dest; 
-        CharArrayObjectMap resultMap = (dest != null) ? dest : new CharArrayObjectMap(2);
+        CharArrayObjectMap<Object> resultMap = (dest != null) ? dest : new CharArrayObjectMap<Object>(2);
         
-        CharArrayObjectMap map = null;
+        CharArrayObjectMap<Object> map = null;
         Object[] objs = null;
         int size;
         if (source instanceof CharArrayObjectMap) {
-        	map = (CharArrayObjectMap) source;
+        	@SuppressWarnings("unchecked")
+			final CharArrayObjectMap<Object> sourceMap = (CharArrayObjectMap<Object>) source;
+			map = sourceMap;
         	size= map.size();
 	    } else {
 			if (source instanceof Object[])
@@ -1222,10 +1226,10 @@ public class CPPSemantics {
 			// For index scopes the point of declaration is ignored.
 			bindings= scope.getBindings(data.astName, true, data.prefixLookup, fileSet);
 		}
-		return expandUsingDeclarationsAndRemoveObjects(bindings, data.typesOnly);
+		return expandUsingDeclarationsAndRemoveObjects(bindings, data);
 	}
 
-	private static IBinding[] expandUsingDeclarationsAndRemoveObjects(final IBinding[] bindings, boolean removeObjects) {
+	private static IBinding[] expandUsingDeclarationsAndRemoveObjects(final IBinding[] bindings, LookupData data) {
 		if (bindings == null || bindings.length == 0)
 			return IBinding.EMPTY_BINDING_ARRAY;
 		
@@ -1233,9 +1237,9 @@ public class CPPSemantics {
 			if (b == null) 
 				break;
 				
-			if (b instanceof ICPPUsingDeclaration || (removeObjects && isObject(b))) {
+			if (b instanceof ICPPUsingDeclaration || (data.typesOnly && isObject(b))) {
 				List<IBinding> result= new ArrayList<IBinding>(bindings.length);
-				expandUsingDeclarations(bindings, removeObjects, result);
+				expandUsingDeclarations(bindings, data, result);
 				return result.toArray(new IBinding[result.size()]);
 			}
 		}
@@ -1246,18 +1250,21 @@ public class CPPSemantics {
 		return !(b instanceof IType || b instanceof ICPPNamespace);
 	}
 
-	private static void expandUsingDeclarations(IBinding[] bindings, boolean removeObjects, List<IBinding> result) {
+	private static void expandUsingDeclarations(IBinding[] bindings, LookupData data, List<IBinding> result) {
 		if (bindings != null) {
 			for (IBinding b : bindings) {
 				if (b == null)
 					return;
+				// Lookup for a declaration shall ignore the using declarations.
 				if (b instanceof ICPPUsingDeclaration) {
-					for (IBinding d : ((ICPPUsingDeclaration) b).getDelegates()) {
-						if (d != null && !(removeObjects && isObject(d))) {
-							result.add(d);
+					if (data.forDeclaration() == null) {
+						for (IBinding d : ((ICPPUsingDeclaration) b).getDelegates()) {
+							if (d != null && !(data.typesOnly && isObject(d))) {
+								result.add(d);
+							}
 						}
 					}
-				} else if (!(removeObjects && isObject(b))) {
+				} else if (!(data.typesOnly && isObject(b))) {
 					result.add(b);
 				}
 			}
@@ -3496,7 +3503,7 @@ public class CPPSemantics {
 		LookupData data = createLookupData(name);
 		data.contentAssist = true;
 		data.prefixLookup = prefixLookup;
-		data.foundItems = new CharArrayObjectMap(2);
+		data.foundItems = new CharArrayObjectMap<Object>(2);
 
 		// Convert namespaces to scopes.
 		List<ICPPScope> nsScopes= new ArrayList<ICPPScope>();
@@ -3564,7 +3571,8 @@ public class CPPSemantics {
     		}
         } catch (DOMException e) {
         }
-        CharArrayObjectMap map = (CharArrayObjectMap) data.foundItems;
+        @SuppressWarnings("unchecked")
+		CharArrayObjectMap<Object> map = (CharArrayObjectMap<Object>) data.foundItems;
         IBinding[] result = IBinding.EMPTY_BINDING_ARRAY;
         if (!map.isEmpty()) {
             char[] key = null;
@@ -3683,7 +3691,7 @@ public class CPPSemantics {
 		return true;
 	}
 
-	private static boolean isSameTemplateParameter(ICPPTemplateParameter tp1, ICPPASTTemplateParameter tp2) {
+	static boolean isSameTemplateParameter(ICPPTemplateParameter tp1, ICPPASTTemplateParameter tp2) {
 		if (tp1.isParameterPack() != tp2.isParameterPack())
 			return false;
 		

@@ -143,19 +143,19 @@ import org.w3c.dom.ProcessingInstruction;
 /**
  * This is the main entry point for getting at the build information
  * for the managed build system.
- * 
+ *
  * @noextend This class is not intended to be subclassed by clients.
  * @noinstantiate This class is not intended to be instantiated by clients.
  */
 public class ManagedBuildManager extends AbstractCExtension {
 
-//	private static final QualifiedName buildInfoProperty = new QualifiedName(ManagedBuilderCorePlugin.getUniqueIdentifier(), "managedBuildInfo");	//$NON-NLS-1$
+//	private static final QualifiedName buildInfoProperty = new QualifiedName(ManagedBuilderCorePlugin.PLUGIN_ID, "managedBuildInfo");	//$NON-NLS-1$
 	private static final String ROOT_NODE_NAME = "ManagedProjectBuildInfo";	//$NON-NLS-1$
 	public  static final String SETTINGS_FILE_NAME = ".cdtbuild";	//$NON-NLS-1$
 	private static final ITarget[] emptyTargets = new ITarget[0];
-	public  static final String INTERFACE_IDENTITY = ManagedBuilderCorePlugin.getUniqueIdentifier() + ".ManagedBuildManager";	//$NON-NLS-1$
-	public  static final String EXTENSION_POINT_ID = ManagedBuilderCorePlugin.getUniqueIdentifier() + ".buildDefinitions";		//$NON-NLS-1$
-	public  static final String EXTENSION_POINT_ID_V2 = ManagedBuilderCorePlugin.getUniqueIdentifier() + ".ManagedBuildInfo";	//$NON-NLS-1$
+	public  static final String INTERFACE_IDENTITY = ManagedBuilderCorePlugin.PLUGIN_ID + ".ManagedBuildManager";	//$NON-NLS-1$
+	public  static final String EXTENSION_POINT_ID = ManagedBuilderCorePlugin.PLUGIN_ID + ".buildDefinitions";		//$NON-NLS-1$
+	public  static final String EXTENSION_POINT_ID_V2 = ManagedBuilderCorePlugin.PLUGIN_ID + ".ManagedBuildInfo";	//$NON-NLS-1$
 	private static final String REVISION_ELEMENT_NAME = "managedBuildRevision";	//$NON-NLS-1$
 	private static final String VERSION_ELEMENT_NAME = "fileVersion";	//$NON-NLS-1$
 	private static final String MANIFEST_VERSION_ERROR ="ManagedBuildManager.error.manifest.version.error";	//$NON-NLS-1$
@@ -184,7 +184,7 @@ public class ManagedBuildManager extends AbstractCExtension {
 	public static final String BUILD_ARTEFACT_TYPE_PROPERTY_STATICLIB = "org.eclipse.cdt.build.core.buildArtefactType.staticLib";	//$NON-NLS-1$
 	public static final String BUILD_ARTEFACT_TYPE_PROPERTY_SHAREDLIB = "org.eclipse.cdt.build.core.buildArtefactType.sharedLib";	//$NON-NLS-1$
 
-	public static final String CFG_DATA_PROVIDER_ID = ManagedBuilderCorePlugin.getUniqueIdentifier() + ".configurationDataProvider"; //$NON-NLS-1$
+	public static final String CFG_DATA_PROVIDER_ID = ManagedBuilderCorePlugin.PLUGIN_ID + ".configurationDataProvider"; //$NON-NLS-1$
 
 	private static final String NEWLINE = System.getProperty("line.separator");	//$NON-NLS-1$
 
@@ -257,16 +257,19 @@ public class ManagedBuildManager extends AbstractCExtension {
 	private static Map<IProject, IManagedBuildInfo> fInfoMap = new HashMap<IProject, IManagedBuildInfo>();
 
 	private static ISorter fToolChainSorter = new ISorter(){
+		@Override
 		public void sort() {
 			resortToolChains();
 		}
 	};
 	private static ISorter fToolSorter = new ISorter(){
+		@Override
 		public void sort() {
 			resortTools();
 		}
 	};
 	private static ISorter fBuilderSorter = new ISorter(){
+		@Override
 		public void sort() {
 			resortBuilders();
 		}
@@ -280,6 +283,7 @@ public class ManagedBuildManager extends AbstractCExtension {
 	static {
 		getEnvironmentVariableProvider().subscribe(
 				fEnvironmentBuildPathsChangeListener = new IEnvironmentBuildPathsChangeListener(){
+					@Override
 					public void buildPathsChanged(IConfiguration configuration, int buildPathType){
 //						if(buildPathType == IEnvVarBuildPath.BUILDPATH_INCLUDE){
 //							initializePathEntries(configuration,null);
@@ -415,7 +419,7 @@ public class ManagedBuildManager extends AbstractCExtension {
 	public static SortedMap<String, ? extends IToolChain> getExtensionToolChainMap() {
 		return getExtensionToolChainMapInternal();
 	}
-	
+
 	public static IToolChain[] getExtensionToolChains() {
 		return getExtensionToolChainMapInternal().values().toArray(new ToolChain[extensionToolChainMap.size()]);
 	}
@@ -440,7 +444,7 @@ public class ManagedBuildManager extends AbstractCExtension {
 	public static SortedMap<String, ? extends ITool> getExtensionToolMap() {
 		return getExtensionToolMapInternal();
 	}
-	
+
 	public static ITool[] getExtensionTools() {
 		return getExtensionToolMapInternal().values().toArray(new Tool[extensionToolMap.size()]);
 	}
@@ -475,7 +479,7 @@ public class ManagedBuildManager extends AbstractCExtension {
 	public static SortedMap<String, ? extends IBuilder> getExtensionBuilderMap() {
 		return getExtensionBuilderMapInternal();
 	}
-	
+
 	public static IBuilder[] getExtensionBuilders() {
 		return getExtensionBuilderMapInternal().values().toArray(new Builder[extensionBuilderMap.size()]);
 	}
@@ -563,7 +567,7 @@ public class ManagedBuildManager extends AbstractCExtension {
 	/**
 	 * @return the base extension configuration from the manifest (plugin.xml)
 	 *  or {@code null} if not found.
-	 *  
+	 *
 	 * @since 8.0
 	 */
 	public static IConfiguration getExtensionConfiguration(IConfiguration cfg) {
@@ -732,7 +736,7 @@ public class ManagedBuildManager extends AbstractCExtension {
 	/**
 	 * @param resource to find the target
 	 * @param id - ID of the target
-	 * 
+	 *
 	 * @return the result of a best-effort search to find a target with the
 	 * specified ID, or {@code null} if one is not found.
 	 */
@@ -819,7 +823,7 @@ public class ManagedBuildManager extends AbstractCExtension {
 	/**
 	 * Gets the currently selected target.  This is used while the project
 	 * property pages are displayed.
-	 * 
+	 *
 	 * @return target configuration.
 	 */
 	public static IConfiguration getSelectedConfiguration(IProject project) {
@@ -1327,6 +1331,7 @@ public class ManagedBuildManager extends AbstractCExtension {
 			if (shell != null) {
 				final String exceptionMsg = err.getMessage();
 				shell.getDisplay().syncExec( new Runnable() {
+					@Override
 					public void run() {
 						MessageDialog.openError(shell,
 								ManagedMakeMessages.getResourceString("ManagedBuildManager.error.write_failed_title"),	//$NON-NLS-1$
@@ -1876,13 +1881,13 @@ public class ManagedBuildManager extends AbstractCExtension {
 			initBuildInfoContainer(buildInfo);
 		} catch (CoreException e) {
 			return new Status(IStatus.ERROR,
-				ManagedBuilderCorePlugin.getUniqueIdentifier(),
+				ManagedBuilderCorePlugin.PLUGIN_ID,
 				IStatus.ERROR,
 				e.getLocalizedMessage(),
 				e);
 		}
 		return new Status(IStatus.OK,
-			ManagedBuilderCorePlugin.getUniqueIdentifier(),
+			ManagedBuilderCorePlugin.PLUGIN_ID,
 			IStatus.OK,
 			ManagedMakeMessages.getFormattedString("ManagedBuildInfo.message.init.ok", resource.getName()),	//$NON-NLS-1$
 			null);
@@ -1899,7 +1904,7 @@ public class ManagedBuildManager extends AbstractCExtension {
 //	private static void initBuildInfoContainer(ManagedBuildInfo info) throws CoreException {
 //		if (info == null) {
 //			throw new CoreException(new Status(IStatus.ERROR,
-//					ManagedBuilderCorePlugin.getUniqueIdentifier(),
+//					ManagedBuilderCorePlugin.PLUGIN_ID,
 //					IStatus.ERROR,
 //					new String(),
 //					null));
@@ -2152,6 +2157,7 @@ public class ManagedBuildManager extends AbstractCExtension {
 						final Shell shell = window.getShell();
 						final String errMsg = ManagedMakeMessages.getFormattedString(MANIFEST_VERSION_ERROR, extension.getUniqueIdentifier());
 						shell.getDisplay().asyncExec( new Runnable() {
+							@Override
 							public void run() {
 								MessageDialog.openError(shell,
 										ManagedMakeMessages.getResourceString("ManagedBuildManager.error.manifest_load_failed_title"),	//$NON-NLS-1$
@@ -2939,7 +2945,7 @@ public class ManagedBuildManager extends AbstractCExtension {
 				if(info != null)
 					doSetLoaddedInfo(project, info, false);
 			} catch (Exception e) {
-				throw new CoreException(new Status(IStatus.ERROR, ManagedBuilderCorePlugin.getUniqueIdentifier(), e.getLocalizedMessage(), e));
+				throw new CoreException(new Status(IStatus.ERROR, ManagedBuilderCorePlugin.PLUGIN_ID, e.getLocalizedMessage(), e));
 			}
 		}
 
@@ -3512,7 +3518,7 @@ public class ManagedBuildManager extends AbstractCExtension {
 	/**
 	 * Generic routine for checking the availability of converters for the given
 	 * Build Object.
-	 * 
+	 *
 	 * @return true if there are converters for the given Build Object.
 	 * Returns false if there are no converters.
 	 */
@@ -3647,15 +3653,15 @@ public class ManagedBuildManager extends AbstractCExtension {
         return superId + "." + suffix;                     //$NON-NLS-1$
 	}
 
-	
+
 	private static int isInt(String s) {
-		try { 
+		try {
 			return Integer.parseInt(s);
 		} catch (NumberFormatException e) {
 			return 0;
 		}
 	}
-	
+
 	/**
 	 * @return base id when the given id was generated by {@link #calculateChildId(String, String)}.
 	 * @since 8.0
@@ -3664,7 +3670,7 @@ public class ManagedBuildManager extends AbstractCExtension {
 		int index = id.lastIndexOf('.');
 		if (index<0)
 			return id;
-		
+
 		String lastSeg = id.substring(index+1,id.length());
 		if (isInt(lastSeg)>0) {
 			String baseId = id.substring(0,index);
@@ -3672,7 +3678,7 @@ public class ManagedBuildManager extends AbstractCExtension {
 		}
 		return getIdFromIdAndVersion(id);
 	}
-	
+
 	/**
 	 * @return calculated relative path given the full path to a folder and a file
 	 */
@@ -4494,7 +4500,7 @@ public class ManagedBuildManager extends AbstractCExtension {
 
 	/**
 	 * Build the specified build configurations.
-	 * 
+	 *
 	 * @param configs - configurations to build
 	 * @param builder - builder to retrieve build arguments
 	 * @param monitor - progress monitor
@@ -4504,10 +4510,10 @@ public class ManagedBuildManager extends AbstractCExtension {
 	public static void buildConfigurations(IConfiguration[] configs, IBuilder builder, IProgressMonitor monitor, boolean allBuilders) throws CoreException{
 		buildConfigurations(configs, builder, monitor, allBuilders, IncrementalProjectBuilder.FULL_BUILD);
 	}
-	
+
 	/**
 	 * Build the specified build configurations.
-	 * 
+	 *
 	 * @param configs - configurations to build
 	 * @param builder - builder to retrieve build arguments
 	 * @param monitor - progress monitor
@@ -4517,7 +4523,7 @@ public class ManagedBuildManager extends AbstractCExtension {
 	 *    <li>{@link IncrementalProjectBuilder#CLEAN_BUILD}</li>
 	 *    <li>{@link IncrementalProjectBuilder#INCREMENTAL_BUILD}</li>
 	 *    <li>{@link IncrementalProjectBuilder#FULL_BUILD}</li>
-	 * 
+	 *
 	 * @since 7.0
 	 */
 	public static void buildConfigurations(IConfiguration[] configs, IBuilder builder, IProgressMonitor monitor,
@@ -4558,7 +4564,7 @@ public class ManagedBuildManager extends AbstractCExtension {
 
 	/**
 	 * Build the specified build configurations for a given project.
-	 * 
+	 *
 	 * @param project - project the configurations belong to
 	 * @param configs - configurations to build
 	 * @param builder - builder to retrieve build arguments
@@ -4569,7 +4575,7 @@ public class ManagedBuildManager extends AbstractCExtension {
 	 *    <li>{@link IncrementalProjectBuilder#CLEAN_BUILD}</li>
 	 *    <li>{@link IncrementalProjectBuilder#INCREMENTAL_BUILD}</li>
 	 *    <li>{@link IncrementalProjectBuilder#FULL_BUILD}</li>
-	 * 
+	 *
 	 * @throws CoreException
 	 */
 	private static void buildConfigurations(final IProject project, final IConfiguration[] configs,
@@ -4581,6 +4587,7 @@ public class ManagedBuildManager extends AbstractCExtension {
 			 *
 			 * @see org.eclipse.core.resources.IWorkspaceRunnable#run(org.eclipse.core.runtime.IProgressMonitor)
 			 */
+			@Override
 			public void run(IProgressMonitor monitor) throws CoreException {
 				int ticks = 1;
 				if (buildKind==IncrementalProjectBuilder.CLEAN_BUILD) {
@@ -4591,18 +4598,18 @@ public class ManagedBuildManager extends AbstractCExtension {
 					ticks = ticks*configs.length;
 				}
 				monitor.beginTask(project.getName(), ticks);
-				
+
 				if (buildKind==IncrementalProjectBuilder.CLEAN_BUILD) {
 					// It is not possible to pass arguments to clean() method of a builder
 					// So we iterate setting active configuration
 					IManagedBuildInfo buildInfo = ManagedBuildManager.getBuildInfo(project);
 					IConfiguration savedCfg = buildInfo.getDefaultConfiguration();
-					
+
 					try {
 						for (IConfiguration config : configs) {
 							if (monitor.isCanceled())
 								break;
-							
+
 							buildInfo.setDefaultConfiguration(config);
 							buildProject(project, null, allBuilders, buildKind, monitor);
 						}
@@ -4621,13 +4628,13 @@ public class ManagedBuildManager extends AbstractCExtension {
 
 			private void buildProject(IProject project, Map<String, String> args, boolean allBuilders, int buildKind, IProgressMonitor monitor)
 					throws CoreException {
-				
+
 				if (allBuilders) {
 					ICommand[] commands = project.getDescription().getBuildSpec();
 					for (ICommand command : commands) {
 						if (monitor.isCanceled())
 							break;
-						
+
 						String builderName = command.getBuilderName();
 						Map<String, String> newArgs = null;
 						if (buildKind!=IncrementalProjectBuilder.CLEAN_BUILD) {

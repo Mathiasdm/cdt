@@ -524,7 +524,8 @@ public class AST2CPPSpecTest extends AST2SpecBaseTest {
 	// struct Base::Datum; // error: Datum undefined
 	// struct Base::Data* pBase; // OK: refers to nested Data
 	public void test3_4_4s3() throws Exception {
-		parse(getAboveComment(), ParserLanguage.CPP, true, 0);
+		String[] problems= {"::Glob", "Glob", "Base::Datum", "Datum"}; 
+		parse(getAboveComment(), ParserLanguage.CPP, problems);
 	}
 
 	// static void f();
@@ -1940,33 +1941,34 @@ public class AST2CPPSpecTest extends AST2SpecBaseTest {
 		parse(getAboveComment(), ParserLanguage.CPP, true, 0);
 	}
 
-	// void f(double& a) { a += 3.14; }
-	// // ...
-	// int foo() {
-	// double d = 0;
-	// f(d);
-	// int v[20];
-	// // ...
-	// int& g(int i) { return v[i]; }
-	// // ...
-	// g(3) = 7;
-	// }
-	// struct link {
-	// link* next;
-	// };
-	// link* first;
-	// void h(link*& p) // p is a reference to pointer
-	// {
-	// p->next = first;
-	// first = p;
-	// p = 0;
-	// }
-	// void k()
-	// {
-	// link* q = new link;
-	// h(q);
-	// }
-	public void test8_3_2s2() throws Exception {
+	//	void f(double& a) { a += 3.14; }
+	//	void foo1() {
+	//		double d = 0;
+	//		f(d);
+	//  }
+	//
+	//	int v[20];
+	//	int& g(int i) { return v[i]; }
+	//	void foo2() {
+	//		g(3) = 7;
+	//	}
+	//
+	//	struct link {
+	//		link* next;
+	//	};
+	//	link* first;
+	//	void h(link*& p) // p is a reference to pointer
+	//	{
+	//		p->next = first;
+	//		first = p;
+	//		p = 0;
+	//	}
+	//	void k()
+	//	{
+	//		link* q = new link;
+	//		h(q);
+	//	}
+	public void test8_3_2s3() throws Exception {
 		parse(getAboveComment(), ParserLanguage.CPP, true, 0);
 	}
 

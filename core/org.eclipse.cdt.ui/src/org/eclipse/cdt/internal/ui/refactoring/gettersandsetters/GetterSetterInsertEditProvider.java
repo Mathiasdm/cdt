@@ -4,7 +4,7 @@
  * All rights reserved. This program and the accompanying materials 
  * are made available under the terms of the Eclipse Public License v1.0 
  * which accompanies this distribution, and is available at 
- * http://www.eclipse.org/legal/epl-v10.html  
+ * http://www.eclipse.org/legal/epl-v10.html
  *  
  * Contributors: 
  *     Institute for Software - initial API and implementation
@@ -31,14 +31,14 @@ public class GetterSetterInsertEditProvider implements Comparable<GetterSetterIn
 	
 	private IASTSimpleDeclaration functionDeclaration;
 	private AccessorKind kind;
-	private IASTName fieldName;
 	private IASTSimpleDeclaration fieldDeclaration;
+	private GetterSetterFactory getterSetterFactory;
 	
 	public GetterSetterInsertEditProvider(IASTName fieldName, IASTSimpleDeclaration fieldDeclaration,
 			AccessorKind kind) {
 		this.kind = kind;
-		this.fieldName = fieldName;
 		this.fieldDeclaration = fieldDeclaration;
+		this.getterSetterFactory = new GetterSetterFactory(fieldName, fieldDeclaration);
 		
 		createFunctionDeclaration();
 	}
@@ -46,10 +46,10 @@ public class GetterSetterInsertEditProvider implements Comparable<GetterSetterIn
 	public void createFunctionDeclaration() {
 		switch (this.kind) {
 		case GETTER:
-			this.functionDeclaration = FunctionFactory.createGetterDeclaration(fieldName, fieldDeclaration);
+			this.functionDeclaration = getterSetterFactory.createGetterDeclaration();
 			break;
 		case SETTER:
-			this.functionDeclaration = FunctionFactory.createSetterDeclaration(fieldName, fieldDeclaration);
+			this.functionDeclaration = getterSetterFactory.createSetterDeclaration();
 			break;
 		}
 	}
@@ -67,28 +67,28 @@ public class GetterSetterInsertEditProvider implements Comparable<GetterSetterIn
 		IASTFunctionDefinition definition = null;
 		ICPPASTQualifiedName qname;
 		if (qualifedName) {
-			qname = getClassname();
+			qname = getClassName();
 		} else {
 			qname = null;
 		}
 		
 		switch (kind) {
 		case GETTER:
-			definition = FunctionFactory.createGetterDefinition(fieldName, fieldDeclaration, qname);
+			definition = getterSetterFactory.createGetterDefinition(qname);
 			break;
 		case SETTER:
-			definition = FunctionFactory.createSetterDefinition(fieldName, fieldDeclaration, qname);
+			definition = getterSetterFactory.createSetterDefinition(qname);
 			break;
 		}
 		return definition;
 	}
 	
-	private ICPPASTQualifiedName getClassname() {
-		IASTNode n = fieldDeclaration.getParent();
-		while (!(n instanceof IASTCompositeTypeSpecifier)) {
-			n = n.getParent();
+	private ICPPASTQualifiedName getClassName() {
+		IASTNode node = fieldDeclaration.getParent();
+		while (!(node instanceof IASTCompositeTypeSpecifier)) {
+			node = node.getParent();
 		}
-		IASTCompositeTypeSpecifier comp = (IASTCompositeTypeSpecifier) n;
+		IASTCompositeTypeSpecifier comp = (IASTCompositeTypeSpecifier) node;
 		
 		CPPASTQualifiedName qname = new CPPASTQualifiedName();
 		qname.addName(comp.getName().copy(CopyStyle.withLocations));
@@ -103,6 +103,7 @@ public class GetterSetterInsertEditProvider implements Comparable<GetterSetterIn
 		return kind;
 	}
 
+	@Override
 	public int compareTo(GetterSetterInsertEditProvider o) {
 		return toString().compareTo(o.toString());
 	}

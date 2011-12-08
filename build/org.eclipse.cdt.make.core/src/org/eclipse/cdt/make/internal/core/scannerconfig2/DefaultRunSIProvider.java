@@ -1,10 +1,10 @@
 /*******************************************************************************
- *  Copyright (c) 2004, 2010 IBM Corporation and others.
+ *  Copyright (c) 2004, 2011 IBM Corporation and others.
  *  All rights reserved. This program and the accompanying materials
  *  are made available under the terms of the Eclipse Public License v1.0
  *  which accompanies this distribution, and is available at
  *  http://www.eclipse.org/legal/epl-v10.html
- * 
+ *
  *  Contributors:
  *  IBM - Initial API and implementation
  *  Tianchao Li (tianchao.li@gmail.com) - arbitrary build directory (bug #136136)
@@ -51,14 +51,13 @@ import org.osgi.service.prefs.BackingStoreException;
 
 /**
  * New default external scanner info provider of type 'run'
- * 
+ *
  * @author vhirsl
  */
 public class DefaultRunSIProvider implements IExternalScannerInfoProvider {
     private static final String EXTERNAL_SI_PROVIDER_ERROR = "ExternalScannerInfoProvider.Provider_Error"; //$NON-NLS-1$
 	private static final String GMAKE_ERROR_PARSER_ID = "org.eclipse.cdt.core.GmakeErrorParser"; //$NON-NLS-1$
 	private static final String PREF_CONSOLE_ENABLED = "org.eclipse.cdt.make.core.scanner.discovery.console.enabled"; //$NON-NLS-1$
-    private static final String LANG_ENV_VAR = "LANG"; //$NON-NLS-1$
 	private static final String NEWLINE = System.getProperty("line.separator", "\n"); //$NON-NLS-1$ //$NON-NLS-2$
 	private static final String PATH_ENV = "PATH"; //$NON-NLS-1$
 
@@ -70,19 +69,21 @@ public class DefaultRunSIProvider implements IExternalScannerInfoProvider {
     protected IPath fWorkingDirectory;
     protected IPath fCompileCommand;
     protected String[] fCompileArguments;
-    
+
     private SCMarkerGenerator markerGenerator = new SCMarkerGenerator();
 
-    public boolean invokeProvider(IProgressMonitor monitor, IResource resource,
+    @Override
+	public boolean invokeProvider(IProgressMonitor monitor, IResource resource,
     		String providerId, IScannerConfigBuilderInfo2 buildInfo,
     		IScannerInfoCollector collector) {
     	return invokeProvider(monitor, resource, new InfoContext(resource.getProject()), providerId, buildInfo, collector, null);
     }
-    
-    public boolean invokeProvider(IProgressMonitor monitor,
-                                  IResource resource, 
+
+    @Override
+	public boolean invokeProvider(IProgressMonitor monitor,
+                                  IResource resource,
                                   InfoContext context,
-                                  String providerId, 
+                                  String providerId,
                                   IScannerConfigBuilderInfo2 buildInfo,
                                   IScannerInfoCollector collector,
                                   Properties env) {
@@ -91,7 +92,7 @@ public class DefaultRunSIProvider implements IExternalScannerInfoProvider {
         this.providerId = providerId;
         this.buildInfo = buildInfo;
         this.collector = collector;
-        
+
         IProject currentProject = resource.getProject();
         // call a subclass to initialize protected fields
         if (!initialize()) {
@@ -101,7 +102,7 @@ public class DefaultRunSIProvider implements IExternalScannerInfoProvider {
             monitor = new NullProgressMonitor();
         }
         monitor.beginTask(MakeMessages.getString("ExternalScannerInfoProvider.Reading_Specs"), 100); //$NON-NLS-1$
-        
+
         try {
 			ILanguage language = context.getLanguage();
 			IConsole console;
@@ -118,7 +119,7 @@ public class DefaultRunSIProvider implements IExternalScannerInfoProvider {
 
             // Before launching give visual cues via the monitor
             monitor.subTask(MakeMessages.getString("ExternalScannerInfoProvider.Reading_Specs")); //$NON-NLS-1$
-            
+
             String errMsg = null;
             ICommandLauncher launcher = new CommandLauncher();
             launcher.setProject(currentProject);
@@ -198,29 +199,29 @@ public class DefaultRunSIProvider implements IExternalScannerInfoProvider {
         }
         return true;
     }
-    
+
     protected IPath getCommandToLaunch() {
     	return fCompileCommand;
     }
-    
+
     protected String[] getCommandLineOptions() {
         // add additional arguments
         // subclass can change default behavior
-        return prepareArguments( 
+        return prepareArguments(
                 buildInfo.isUseDefaultProviderCommand(providerId));
     }
-    
+
     private void printLine(OutputStream stream, String msg) throws IOException {
     	stream.write((msg + NEWLINE).getBytes());
     	stream.flush();
     }
-    
+
     /**
-     * Initialization of protected fields. 
+     * Initialization of protected fields.
      * Subclasses are most likely to override default implementation.
      */
     protected boolean initialize() {
-    	
+
 		IProject currProject = resource.getProject();
         //fWorkingDirectory = resource.getProject().getLocation();
 		URI workingDirURI = MakeBuilderUtil.getBuildDirectoryURI(currProject, MakeBuilder.BUILDER_ID);
@@ -228,12 +229,12 @@ public class DefaultRunSIProvider implements IExternalScannerInfoProvider {
 		if(pathString != null) {
 			fWorkingDirectory = new Path(pathString);
 		}
-		
+
 		else {
 			// blow up
 			throw new IllegalStateException();
 		}
-		
+
         fCompileCommand = new Path(buildInfo.getProviderRunCommand(providerId));
         fCompileArguments = ScannerConfigUtil.tokenizeStringWithQuotes(buildInfo.getProviderRunArguments(providerId), "\"");//$NON-NLS-1$
         return (fCompileCommand != null);
@@ -260,21 +261,19 @@ public class DefaultRunSIProvider implements IExternalScannerInfoProvider {
 
 	private Properties getEnvMap(ICommandLauncher launcher, Properties initialEnv) {
 		// Set the environmennt, some scripts may need the CWD var to be set.
-        Properties props = initialEnv != null ? initialEnv : launcher.getEnvironment();
-        
-        if (fWorkingDirectory != null) {
+		Properties props = initialEnv != null ? initialEnv : launcher.getEnvironment();
+	
+		if (fWorkingDirectory != null) {
 			props.put("CWD", fWorkingDirectory.toOSString()); //$NON-NLS-1$
 			props.put("PWD", fWorkingDirectory.toOSString()); //$NON-NLS-1$
 		}
-        // On POSIX (Linux, UNIX) systems reset LANG variable to English with
-		// UTF-8 encoding
-        // since GNU compilers can handle only UTF-8 characters. English language is chosen
-        // beacuse GNU compilers inconsistently handle different locales when generating
-        // output of the 'gcc -v' command. Include paths with locale characters will be
-        // handled properly regardless of the language as long as the encoding is set to UTF-8.
-        if (props.containsKey(LANG_ENV_VAR)) {
-            props.put(LANG_ENV_VAR, "en_US.UTF-8"); //$NON-NLS-1$
-        }
+		// On POSIX (Linux, UNIX) systems reset LANG variable to English with
+		// UTF-8 encoding since GNU compilers can handle only UTF-8 characters.
+		// Include paths with locale characters will be handled properly regardless
+		// of the language as long as the encoding is set to UTF-8.
+		// English language is chosen because parser relies on English messages
+		// in the output of the 'gcc -v' command.
+		props.put("LC_ALL", "en_US.UTF-8"); //$NON-NLS-1$ //$NON-NLS-2$
 		return props;
 	}
 
@@ -309,7 +308,7 @@ public class DefaultRunSIProvider implements IExternalScannerInfoProvider {
 
 	/**
 	 * Check preference to stream output of scanner discovery to a console.
-	 * 
+	 *
 	 * @return boolean preference value
 	 */
 	public static boolean isConsoleEnabled() {
@@ -317,5 +316,5 @@ public class DefaultRunSIProvider implements IExternalScannerInfoProvider {
 				.getBoolean(PREF_CONSOLE_ENABLED, false);
 		return value;
 	}
-	
+
 }

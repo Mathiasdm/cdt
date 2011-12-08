@@ -266,8 +266,7 @@ public class AST2CPPTests extends AST2BaseTest {
 		assertNoProblemBindings(col);
 	}
 	
-	protected IASTTranslationUnit parseAndCheckBindings(String code) throws Exception
-	{
+	protected IASTTranslationUnit parseAndCheckBindings(String code) throws Exception {
 		IASTTranslationUnit tu = parse(code, ParserLanguage.CPP); 
 		CPPNameCollector col = new CPPNameCollector();
 		tu.accept(col);
@@ -285,8 +284,7 @@ public class AST2CPPTests extends AST2BaseTest {
 		return new BindingAssertionHelper(code, true);
 	}
 
-	public void testBug40422() throws Exception
-	{
+	public void testBug40422() throws Exception {
 		IASTTranslationUnit tu = parse("class A { int y; }; int A::* x = 0;", ParserLanguage.CPP); //$NON-NLS-1$
 		CPPNameCollector col = new CPPNameCollector();
 		tu.accept(col);
@@ -6394,7 +6392,25 @@ public class AST2CPPTests extends AST2BaseTest {
 		assertProblemBinding(IProblemBinding.SEMANTIC_INVALID_REDECLARATION, nc.getName(6).resolveBinding());
 		assertProblemBinding(IProblemBinding.SEMANTIC_INVALID_REDEFINITION, nc.getName(8).resolveBinding());
     }
-    
+
+    //    template <typename T> class A;
+    //    template <template<typename> class T> class A {};
+    //    template <template<typename> class T> class A;
+    //    template <template<typename> class T> class B {};
+    //    template <typename T> class B;
+    //    template <typename T> class B {};
+    public void testInvalidClassRedeclaration_364226() throws Exception {
+		final String code = getAboveComment();
+		IASTTranslationUnit tu= parse(code, ParserLanguage.CPP, true, false);
+		CPPNameCollector nc= new CPPNameCollector();
+		tu.accept(nc);
+		assertProblemBindings(nc, 4);
+		assertProblemBinding(IProblemBinding.SEMANTIC_INVALID_REDEFINITION, nc.getName(4).resolveBinding());
+		assertProblemBinding(IProblemBinding.SEMANTIC_INVALID_REDECLARATION, nc.getName(7).resolveBinding());
+		assertProblemBinding(IProblemBinding.SEMANTIC_INVALID_REDECLARATION, nc.getName(12).resolveBinding());
+		assertProblemBinding(IProblemBinding.SEMANTIC_INVALID_REDEFINITION, nc.getName(14).resolveBinding());
+    }
+
     //    struct Foo {
     //        void foo();
     //    };
@@ -9553,5 +9569,33 @@ public class AST2CPPTests extends AST2BaseTest {
 	//	};
 	public void testAmbiguityResolution_Bug359364() throws Exception {
 		parseAndCheckBindings();
+	}
+	
+	//	template<typename T> struct C {
+	//		C(const C<T>& c) {}
+	//	};
+	//	struct D {
+	//      typedef const D& TD;
+	//		D(TD c) {}
+	//	};
+	//  struct E {
+	//     E();
+	//  };
+	//  typedef E F;
+	//  F::E(){}
+	public void testImplicitCtors_360223() throws Exception {
+		BindingAssertionHelper bh= getAssertionHelper();
+		ICPPClassType c= bh.assertNonProblem("C", 0);
+		ICPPConstructor[] ctors = c.getConstructors();
+		assertEquals(1, ctors.length);
+		assertFalse(ctors[0].isImplicit());
+
+		c= bh.assertNonProblem("D", 0);
+		ctors = c.getConstructors();
+		assertEquals(1, ctors.length);
+		assertFalse(ctors[0].isImplicit());
+		
+		IBinding ctor= bh.assertNonProblem("E(){}", 1);
+		assertTrue(ctor instanceof ICPPConstructor);
 	}
 }
