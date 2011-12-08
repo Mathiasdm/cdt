@@ -16,9 +16,6 @@ import java.util.Arrays;
 import java.util.List;
 
 import org.eclipse.cdt.codan.core.cxx.model.AbstractIndexAstChecker;
-import org.eclipse.cdt.codan.internal.checkers.preprocessor.ASTPreprocessorVisitor;
-import org.eclipse.cdt.codan.internal.checkers.preprocessor.NodePreprocessorMap;
-import org.eclipse.cdt.codan.internal.checkers.preprocessor.PreprocessorHandler;
 import org.eclipse.cdt.core.dom.ast.IASTPreprocessorEndifStatement;
 import org.eclipse.cdt.core.dom.ast.IASTPreprocessorIfndefStatement;
 import org.eclipse.cdt.core.dom.ast.IASTPreprocessorIncludeStatement;
@@ -51,21 +48,14 @@ public class UnneededHeaderGuard extends AbstractIndexAstChecker {
 	 * External header guard.
 	 */
 	private class Issue {
-		private String define;
 		private IASTPreprocessorIncludeStatement include;
 		
 		/**
 		 * Construct a headerguard issue
-		 * @param define The String checked in the '#ifndef' statement.
 		 * @param include The include statement surrounded by header guards.
 		 */
-		public Issue(String define, IASTPreprocessorIncludeStatement include) {
-			this.define = define;
+		public Issue(IASTPreprocessorIncludeStatement include) {
 			this.include = include;
-		}
-		
-		public String getDefine() {
-			return define;
 		}
 		
 		public IASTPreprocessorIncludeStatement getInclude() {
@@ -87,14 +77,12 @@ public class UnneededHeaderGuard extends AbstractIndexAstChecker {
 		ArrayList<Issue> issues = new ArrayList<Issue>();
 		
 		PositionState state = PositionState.START;
-		String define = null;
 		IASTPreprocessorIncludeStatement include = null;
 		for(IASTPreprocessorStatement statement: statements) {
 			switch(state) {
 				case START:
 					if(statement instanceof IASTPreprocessorIfndefStatement) {
 						state = PositionState.IFNDEF;
-						define = new String(((IASTPreprocessorIfndefStatement) statement).getCondition());
 					}
 					break;
 				case IFNDEF:
@@ -108,7 +96,7 @@ public class UnneededHeaderGuard extends AbstractIndexAstChecker {
 					break;
 				case INCLUDE:
 					if(statement instanceof IASTPreprocessorEndifStatement) {
-						issues.add(new Issue(define, include));
+						issues.add(new Issue(include));
 					}
 					state = PositionState.START;
 					break;
