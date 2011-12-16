@@ -34,9 +34,6 @@ public class QuickFixUnneededHeaderGuard extends AbstractAstRewriteQuickFix {
 
 	@Override
 	public void modifyAST(IIndex index, IMarker marker) {
-		if(!isApplicable(marker)) {
-			return;
-		}
 		String markerFile = marker.getResource().getLocation().toString();
 		int markerPos = 0;
 		try {
