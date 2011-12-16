@@ -116,11 +116,8 @@ public class QuickFixUnneededHeaderGuard extends AbstractAstRewriteQuickFix {
 	 */
 	@Override
 	public boolean isApplicable(IMarker marker) {
-		if (isCodanProblem()) {
-			@SuppressWarnings("restriction")
-			String problemId = CodanProblemMarker.getProblemId(marker);
-			return problemId.equals(UnneededHeaderGuard.ER_ID);
-		}
-		return false;
+		@SuppressWarnings("restriction")
+		String problemId = CodanProblemMarker.getProblemId(marker);
+		return problemId.equals(UnneededHeaderGuard.ER_ID);
 	}
 }
